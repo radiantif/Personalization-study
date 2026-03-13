@@ -1034,6 +1034,12 @@ function isOverdue(dateStr) {
 
 // ─── Auth ─────────────────────────────────────────────
 let currentUser = null;
+const LOGIN_PATH = '/login.html';
+
+function redirectToLogin() {
+  if (window.location.pathname.endsWith(LOGIN_PATH)) return;
+  window.location.href = LOGIN_PATH;
+}
 
 async function checkAuth() {
   try {
@@ -1042,12 +1048,12 @@ async function checkAuth() {
       signal: AbortSignal.timeout(5000) // timeout 5 giây
     });
     if (!res.ok) {
-      window.location.href = '/login.html';
+      redirectToLogin();
       return false;
     }
     const data = await res.json();
     if (!data.authenticated) {
-      window.location.href = '/login.html';
+      redirectToLogin();
       return false;
     }
     currentUser = data.user;
@@ -1055,7 +1061,7 @@ async function checkAuth() {
   } catch (err) {
     // Nếu backend lỗi, không redirect liên tục
     console.warn('Auth check failed:', err.message);
-    window.location.href = '/login.html';
+    redirectToLogin();
     return false;
   }
 }
@@ -1064,7 +1070,7 @@ async function logout() {
   try {
     await fetch(API.replace('/api','') + '/api/auth/logout', { method: 'POST', credentials: 'include' });
   } catch {}
-  window.location.href = '/login.html';
+  redirectToLogin();
 }
 
 // Override apiFetch to include credentials
@@ -1077,7 +1083,7 @@ async function apiFetch(path, options = {}) {
       ...options,
     });
     if (res.status === 401) {
-      window.location.href = '/login.html';
+      redirectToLogin();
       return;
     }
     if (!res.ok) {
@@ -1086,7 +1092,7 @@ async function apiFetch(path, options = {}) {
     }
     return await res.json();
   } catch (err) {
-    if (err.message && err.message.includes('login')) window.location.href = '/login.html';
+    if (err.message && err.message.includes('login')) redirectToLogin();
     console.error(`API error [${path}]:`, err.message);
     throw err;
   }
