@@ -3,8 +3,7 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "connect-pg-simple": "^9.0.1",
@@ -17,8 +16,5 @@
     "passport-google-oauth20": "^2.0.0",
     "pg": "^8.11.3",
     "uuid": "^9.0.0"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.2"
   }
 }
