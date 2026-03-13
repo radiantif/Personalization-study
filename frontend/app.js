@@ -1037,14 +1037,24 @@ let currentUser = null;
 
 async function checkAuth() {
   try {
-    const data = await fetch(API.replace('/api','') + '/api/auth/me', { credentials: 'include' }).then(r => r.json());
+    const res = await fetch(API.replace('/api','') + '/api/auth/me', {
+      credentials: 'include',
+      signal: AbortSignal.timeout(5000) // timeout 5 giây
+    });
+    if (!res.ok) {
+      window.location.href = '/login.html';
+      return false;
+    }
+    const data = await res.json();
     if (!data.authenticated) {
       window.location.href = '/login.html';
       return false;
     }
     currentUser = data.user;
     return true;
-  } catch {
+  } catch (err) {
+    // Nếu backend lỗi, không redirect liên tục
+    console.warn('Auth check failed:', err.message);
     window.location.href = '/login.html';
     return false;
   }
