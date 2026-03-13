@@ -8,7 +8,7 @@
 // ─── Config ──────────────────────────────────────────
 const API = window.location.hostname === 'localhost'
   ? 'http://localhost:3001/api'
-  : 'https://study-dashboard-api-b17y.onrender.com/api'; 
+  : 'https://YOUR-RENDER-APP.onrender.com/api'; // ← Replace with your Render URL
 
 // ─── State ───────────────────────────────────────────
 let tasks = [];
@@ -1032,22 +1032,104 @@ function isOverdue(dateStr) {
   return new Date(dateStr) < new Date();
 }
 
+// ─── Auth ─────────────────────────────────────────────
+let currentUser = null;
+
+async function checkAuth() {
+  try {
+    const data = await fetch(API.replace('/api','') + '/api/auth/me', { credentials: 'include' }).then(r => r.json());
+    if (!data.authenticated) {
+      window.location.href = '/login.html';
+      return false;
+    }
+    currentUser = data.user;
+    return true;
+  } catch {
+    window.location.href = '/login.html';
+    return false;
+  }
+}
+
+async function logout() {
+  try {
+    await fetch(API.replace('/api','') + '/api/auth/logout', { method: 'POST', credentials: 'include' });
+  } catch {}
+  window.location.href = '/login.html';
+}
+
+// Override apiFetch to include credentials
+const _origFetch = apiFetch;
+async function apiFetch(path, options = {}) {
+  try {
+    const res = await fetch(`${API}${path}`, {
+      headers: { 'Content-Type': 'application/json', ...options.headers },
+      credentials: 'include',
+      ...options,
+    });
+    if (res.status === 401) {
+      window.location.href = '/login.html';
+      return;
+    }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  } catch (err) {
+    if (err.message && err.message.includes('login')) window.location.href = '/login.html';
+    console.error(`API error [${path}]:`, err.message);
+    throw err;
+  }
+}
+
+// ─── Avatar Upload ────────────────────────────────────
+function openAvatarUpload() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = async function() {
+    if (!input.files[0]) return;
+    const formData = new FormData();
+    formData.append('avatar', input.files[0]);
+    try {
+      const res = await fetch(`${API}/profile/avatar`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (data.url) {
+        const fullUrl = API.replace('/api','') + data.url;
+        updateAvatarDisplay(fullUrl);
+        toast('Ảnh đại diện đã được cập nhật! 🎉');
+      }
+    } catch (err) { toast('Lỗi tải ảnh lên', 'error'); }
+  };
+  input.click();
+}
+
+function updateAvatarDisplay(url) {
+  // Sidebar avatar
+  const orb = document.querySelector('.avatar-orb');
+  if (orb) { orb.innerHTML = `<img src="${url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover"/>`; }
+  // Profile page avatar
+  const pa = $('profileAvatar');
+  if (pa) { pa.innerHTML = `<img src="${url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover"/>`; }
+}
+
 // ─── Init ─────────────────────────────────────────────
 async function init() {
   loadSavedTheme();
   initParticles();
   setupFileDropZone();
 
+  // Check login
+  const authed = await checkAuth();
+  if (!authed) return;
+
   // Load initial data
   await loadSidebarProfile();
-  loadStats(); // for home stats row
-
-  // Check backend connectivity
-  try {
-    await apiFetch('/health');
-  } catch {
-    console.warn('Backend not reachable. Make sure the server is running!');
-  }
+  loadStats();
 }
 
 document.addEventListener('DOMContentLoaded', init);

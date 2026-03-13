@@ -1,40 +1,57 @@
-// routes/profile.js
+'use strict';
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
 const pool = require('../db');
+const { v4: uuidv4 } = require('uuid');
 
-const DEFAULT_USER_ID = 1; // Single-user app
+// Auth middleware
+function requireAuth(req, res, next) {
+  if (req.isAuthenticated()) return next();
+  res.status(401).json({ error: 'Chưa đăng nhập' });
+}
+
+// Multer for avatar upload
+const storage = multer.diskStorage({
+  destination: function(req, file, cb) {
+    cb(null, path.join(__dirname, '../uploads'));
+  },
+  filename: function(req, file, cb) {
+    const ext = path.extname(file.originalname);
+    cb(null, 'avatar-' + uuidv4() + ext);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: function(req, file, cb) {
+    const allowed = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) cb(null, true);
+    else cb(new Error('Chỉ chấp nhận file ảnh'));
+  }
+});
 
 // GET profile
-router.get('/', async (req, res) => {
+router.get('/', requireAuth, async function(req, res) {
   try {
-    let result = await pool.query('SELECT * FROM users WHERE id=$1', [DEFAULT_USER_ID]);
-    if (result.rows.length === 0) {
-      // Auto-create default profile
-      result = await pool.query(
-        `INSERT INTO users (id, name, avatar, level, exp, total_study_hours, exam_date)
-         VALUES ($1, 'Student', '🎓', 1, 0, 0, NOW() + INTERVAL '120 days')
-         RETURNING *`,
-        [DEFAULT_USER_ID]
-      );
-    }
+    const result = await pool.query('SELECT * FROM users WHERE id=$1', [req.user.id]);
     res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST / PUT update profile
-router.post('/', async (req, res) => {
+// POST update profile (name, emoji avatar, exam_date, target)
+router.post('/', requireAuth, async function(req, res) {
   const { name, avatar, exam_date, target_subject } = req.body;
   try {
     const result = await pool.query(
-      `INSERT INTO users (id, name, avatar, exam_date, target_subject)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (id) DO UPDATE
-       SET name=$2, avatar=$3, exam_date=$4, target_subject=$5, updated_at=NOW()
-       RETURNING *`,
-      [DEFAULT_USER_ID, name, avatar, exam_date, target_subject]
+      `UPDATE users SET name=$1, avatar=$2, exam_date=$3, target_subject=$4, updated_at=NOW()
+       WHERE id=$5 RETURNING *`,
+      [name, avatar, exam_date, target_subject, req.user.id]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -42,8 +59,23 @@ router.post('/', async (req, res) => {
   }
 });
 
+// POST upload avatar image
+router.post('/avatar', requireAuth, upload.single('avatar'), async function(req, res) {
+  if (!req.file) return res.status(400).json({ error: 'Không có file' });
+  try {
+    const fileUrl = '/uploads/' + req.file.filename;
+    const result = await pool.query(
+      'UPDATE users SET custom_avatar=$1, updated_at=NOW() WHERE id=$2 RETURNING *',
+      [fileUrl, req.user.id]
+    );
+    res.json({ url: fileUrl, user: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST add EXP
-router.post('/exp', async (req, res) => {
+router.post('/exp', requireAuth, async function(req, res) {
   const { amount } = req.body;
   try {
     const result = await pool.query(
@@ -51,9 +83,8 @@ router.post('/exp', async (req, res) => {
        SET exp = exp + $1,
            level = CASE WHEN (exp + $1) >= level * 100 THEN level + 1 ELSE level END,
            updated_at = NOW()
-       WHERE id = $2
-       RETURNING *`,
-      [amount || 10, DEFAULT_USER_ID]
+       WHERE id = $2 RETURNING *`,
+      [amount || 10, req.user.id]
     );
     res.json(result.rows[0]);
   } catch (err) {

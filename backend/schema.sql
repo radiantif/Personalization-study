@@ -1,68 +1,107 @@
-'use strict';
-const express = require('express');
-const router = express.Router();
-const pool = require('../db');
+-- =====================================================
+-- Study Dashboard — Full Schema (with Auth)
+-- Run toàn bộ file này trong Neon SQL Editor
+-- =====================================================
 
-// GET all chat sessions
-router.get('/', async function(req, res) {
-  try {
-    const result = await pool.query(
-      'SELECT id, title, subject, created_at, updated_at FROM chat_sessions ORDER BY updated_at DESC'
-    );
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+-- ─── Users (updated for Google OAuth) ────────────────
+CREATE TABLE IF NOT EXISTS users (
+  id                SERIAL PRIMARY KEY,
+  google_id         VARCHAR(100) UNIQUE,
+  email             VARCHAR(200) UNIQUE,
+  name              VARCHAR(100) NOT NULL DEFAULT 'Student',
+  avatar            VARCHAR(10) DEFAULT '🎓',
+  google_avatar     TEXT,
+  custom_avatar     TEXT,
+  level             INT NOT NULL DEFAULT 1,
+  exp               INT NOT NULL DEFAULT 0,
+  total_study_hours DECIMAL(10,2) DEFAULT 0,
+  exam_date         TIMESTAMPTZ,
+  target_subject    VARCHAR(100),
+  last_login        TIMESTAMPTZ DEFAULT NOW(),
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW()
+);
 
-// GET single chat with messages
-router.get('/:id', async function(req, res) {
-  try {
-    const result = await pool.query('SELECT * FROM chat_sessions WHERE id=$1', [req.params.id]);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Chat not found' });
-    res.json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+-- ─── Sessions table (for express-session) ────────────
+CREATE TABLE IF NOT EXISTS user_sessions (
+  sid    VARCHAR NOT NULL COLLATE "default",
+  sess   JSON NOT NULL,
+  expire TIMESTAMP(6) NOT NULL,
+  CONSTRAINT session_pkey PRIMARY KEY (sid) NOT DEFERRABLE INITIALLY IMMEDIATE
+);
+CREATE INDEX IF NOT EXISTS idx_session_expire ON user_sessions(expire);
 
-// POST create new chat session
-router.post('/', async function(req, res) {
-  const { title, subject, messages } = req.body;
-  try {
-    const result = await pool.query(
-      'INSERT INTO chat_sessions (title, subject, messages) VALUES ($1, $2, $3) RETURNING *',
-      [title || 'Cuộc trò chuyện mới', subject || 'Chung', JSON.stringify(messages || [])]
-    );
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+-- ─── Tasks ────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS tasks (
+  id          SERIAL PRIMARY KEY,
+  user_id     INT REFERENCES users(id) ON DELETE CASCADE,
+  title       VARCHAR(500) NOT NULL,
+  subject     VARCHAR(100),
+  deadline    DATE,
+  completed   BOOLEAN DEFAULT FALSE,
+  sort_order  INT DEFAULT 0,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_tasks_user ON tasks(user_id);
 
-// PUT update chat messages
-router.put('/:id', async function(req, res) {
-  const { title, messages } = req.body;
-  try {
-    const result = await pool.query(
-      'UPDATE chat_sessions SET title=$1, messages=$2, updated_at=NOW() WHERE id=$3 RETURNING *',
-      [title, JSON.stringify(messages), req.params.id]
-    );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Chat not found' });
-    res.json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+-- ─── Subjects ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS subjects (
+  id         SERIAL PRIMARY KEY,
+  user_id    INT REFERENCES users(id) ON DELETE CASCADE,
+  name       VARCHAR(100) NOT NULL,
+  color      VARCHAR(20) DEFAULT '#6366f1',
+  icon       VARCHAR(10) DEFAULT '📁',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_subjects_user ON subjects(user_id);
 
-// DELETE chat session
-router.delete('/:id', async function(req, res) {
-  try {
-    await pool.query('DELETE FROM chat_sessions WHERE id=$1', [req.params.id]);
-    res.json({ message: 'Đã xóa' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+-- ─── Flashcards ───────────────────────────────────────
+CREATE TABLE IF NOT EXISTS flashcards (
+  id         SERIAL PRIMARY KEY,
+  user_id    INT REFERENCES users(id) ON DELETE CASCADE,
+  question   TEXT NOT NULL,
+  answer     TEXT NOT NULL,
+  subject    VARCHAR(100) DEFAULT 'General',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_flashcards_user ON flashcards(user_id);
 
-module.exports = router;
+-- ─── Materials ────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS materials (
+  id            SERIAL PRIMARY KEY,
+  user_id       INT REFERENCES users(id) ON DELETE CASCADE,
+  title         VARCHAR(500) NOT NULL,
+  subject_id    INT REFERENCES subjects(id) ON DELETE SET NULL,
+  file_url      TEXT,
+  file_type     VARCHAR(20) DEFAULT 'note',
+  original_name VARCHAR(500),
+  content       TEXT,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_materials_user ON materials(user_id);
+
+-- ─── Study Sessions ───────────────────────────────────
+CREATE TABLE IF NOT EXISTS study_sessions (
+  id               SERIAL PRIMARY KEY,
+  user_id          INT REFERENCES users(id) ON DELETE CASCADE,
+  subject          VARCHAR(100),
+  duration_minutes INT NOT NULL,
+  note             TEXT,
+  started_at       TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON study_sessions(user_id);
+
+-- ─── Chat Sessions ────────────────────────────────────
+CREATE TABLE IF NOT EXISTS chat_sessions (
+  id         SERIAL PRIMARY KEY,
+  user_id    INT REFERENCES users(id) ON DELETE CASCADE,
+  title      VARCHAR(200) DEFAULT 'Cuộc trò chuyện mới',
+  subject    VARCHAR(50) DEFAULT 'Chung',
+  messages   JSONB DEFAULT '[]',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_chats_user ON chat_sessions(user_id);

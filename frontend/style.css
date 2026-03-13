@@ -1883,3 +1883,46 @@ select.input-field option {
   .ai-subj-btn { flex-direction: column; gap: 2px; padding: 0.4rem 0.6rem; }
   .asb-name { font-size: 0.65rem; }
 }
+
+/* ─── Auth / Avatar Upload ───────────────────────────── */
+.profile-avatar {
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.avatar-upload-overlay {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  border-radius: 50%;
+}
+
+.profile-avatar:hover .avatar-upload-overlay { opacity: 1; }
+
+.btn-upload-avatar {
+  font-size: 0.78rem !important;
+  padding: 0.35rem 0.8rem !important;
+  margin-top: 0.3rem;
+}
+
+.btn-logout {
+  margin-top: 0.5rem;
+  padding: 0.4rem 1rem;
+  border-radius: 10px;
+  background: rgba(255,100,100,0.1);
+  border: 1px solid rgba(255,100,100,0.2);
+  color: #ff8080;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+.btn-logout:hover {
+  background: rgba(255,100,100,0.2);
+  border-color: #ff6464;
+}
