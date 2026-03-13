@@ -383,39 +383,87 @@
 
   <!-- ── PAGE: AI TUTOR ──────────────────────────────────────── -->
   <section class="page" id="page-ai">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">AI Tutor</h1>
-        <p class="page-sub">Ask anything — I'm here to help you learn</p>
-      </div>
-      <button class="btn btn-ghost" onclick="clearChat()">Clear Chat</button>
-    </div>
+    <div class="ai-full-layout">
 
-    <div class="ai-chat-layout">
-      <div class="chat-messages" id="chatMessages">
-        <div class="chat-msg ai">
-          <div class="chat-avatar">🤖</div>
-          <div class="chat-bubble">
-            <p>Hello! I'm your AI Study Tutor. ✨</p>
-            <p>Ask me anything — math problems, science concepts, history events, grammar rules. I'll explain it clearly and help you understand.</p>
-            <p>What would you like to learn today?</p>
+      <!-- Left: Chat History -->
+      <div class="ai-history-panel">
+        <div class="ai-history-header">
+          <span>💬 Lịch sử</span>
+          <button class="btn-new-chat" onclick="newChat()" title="Cuộc trò chuyện mới">✏️</button>
+        </div>
+        <div class="ai-history-list" id="aiHistoryList">
+          <div class="loading-state" style="padding:1rem;font-size:0.75rem">Đang tải...</div>
+        </div>
+      </div>
+
+      <!-- Center: Chat Area -->
+      <div class="ai-chat-center">
+        <div class="ai-chat-topbar">
+          <div class="ai-current-subject" id="aiCurrentSubjectLabel">
+            <span id="aiSubjectIcon">🤖</span>
+            <span id="aiSubjectName">Gia sư AI</span>
+          </div>
+          <div class="ai-topbar-actions">
+            <button class="btn btn-ghost btn-sm" onclick="clearChat()">🗑️ Xóa</button>
+            <button class="btn btn-ghost btn-sm" onclick="saveChatSession()">💾 Lưu</button>
+          </div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+          <div class="chat-msg ai">
+            <div class="chat-avatar">🤖</div>
+            <div class="chat-bubble">
+              <p>Xin chào! Tôi là Gia sư AI của bạn. ✨</p>
+              <p>Hãy chọn môn học bên phải rồi đặt câu hỏi. Tôi sẽ giải thích rõ ràng và giúp bạn học tốt hơn!</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-input-area">
+          <div class="suggested-prompts" id="suggestedPrompts">
+            <button class="prompt-chip" onclick="sendSuggestion(this)">Giải thích quang hợp</button>
+            <button class="prompt-chip" onclick="sendSuggestion(this)">Định luật Newton là gì?</button>
+            <button class="prompt-chip" onclick="sendSuggestion(this)">Giải phương trình bậc 2</button>
+            <button class="prompt-chip" onclick="sendSuggestion(this)">Nguyên nhân Thế chiến 2</button>
+          </div>
+          <div class="chat-input-row">
+            <textarea class="chat-input" id="chatInput" placeholder="Nhập câu hỏi của bạn..." rows="1" onkeydown="handleChatKey(event)"></textarea>
+            <button class="chat-send-btn" onclick="sendMessage()" id="chatSendBtn"><span>↑</span></button>
           </div>
         </div>
       </div>
-      <div class="chat-input-area">
-        <div class="suggested-prompts" id="suggestedPrompts">
-          <button class="prompt-chip" onclick="sendSuggestion(this)">Explain photosynthesis</button>
-          <button class="prompt-chip" onclick="sendSuggestion(this)">What is Newton's first law?</button>
-          <button class="prompt-chip" onclick="sendSuggestion(this)">Help me with quadratic equations</button>
-          <button class="prompt-chip" onclick="sendSuggestion(this)">Summarize WW2 causes</button>
-        </div>
-        <div class="chat-input-row">
-          <textarea class="chat-input" id="chatInput" placeholder="Ask your question..." rows="1" onkeydown="handleChatKey(event)"></textarea>
-          <button class="chat-send-btn" onclick="sendMessage()" id="chatSendBtn">
-            <span>↑</span>
+
+      <!-- Right: Subject Selector -->
+      <div class="ai-subject-panel">
+        <div class="ai-subject-header">📚 Chọn môn học</div>
+        <div class="ai-subject-list" id="aiSubjectList">
+          <button class="ai-subj-btn active" data-subject="Chung" data-icon="🤖" onclick="selectSubject(this)">
+            <span class="asb-icon">🤖</span><span class="asb-name">Chung</span>
+          </button>
+          <button class="ai-subj-btn" data-subject="Toán" data-icon="📐" onclick="selectSubject(this)">
+            <span class="asb-icon">📐</span><span class="asb-name">Toán</span>
+          </button>
+          <button class="ai-subj-btn" data-subject="Lý" data-icon="⚡" onclick="selectSubject(this)">
+            <span class="asb-icon">⚡</span><span class="asb-name">Vật Lý</span>
+          </button>
+          <button class="ai-subj-btn" data-subject="Hóa" data-icon="🧪" onclick="selectSubject(this)">
+            <span class="asb-icon">🧪</span><span class="asb-name">Hóa Học</span>
+          </button>
+          <button class="ai-subj-btn" data-subject="Văn" data-icon="📖" onclick="selectSubject(this)">
+            <span class="asb-icon">📖</span><span class="asb-name">Ngữ Văn</span>
+          </button>
+          <button class="ai-subj-btn" data-subject="Ngoại ngữ 1" data-icon="🌍" onclick="selectSubject(this)">
+            <span class="asb-icon">🌍</span><span class="asb-name">Ngoại ngữ 1</span>
+          </button>
+          <button class="ai-subj-btn" data-subject="Lịch sử" data-icon="🏛️" onclick="selectSubject(this)">
+            <span class="asb-icon">🏛️</span><span class="asb-name">Lịch Sử</span>
+          </button>
+          <button class="ai-subj-btn" data-subject="Sinh" data-icon="🔬" onclick="selectSubject(this)">
+            <span class="asb-icon">🔬</span><span class="asb-name">Sinh Học</span>
           </button>
         </div>
       </div>
+
     </div>
   </section>
 

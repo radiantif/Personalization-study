@@ -1,4 +1,3 @@
-// server.js — Study Dashboard API
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -10,45 +9,53 @@ const materialsRouter = require('./routes/materials');
 const profileRouter = require('./routes/profile');
 const sessionsRouter = require('./routes/sessions');
 const aiRouter = require('./routes/ai');
+const chatsRouter = require('./routes/chats');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// ─── Middleware ───────────────────────────────────────────────
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
+  origin: function(origin, callback) {
+    const allowed = [
+      'https://personalization-study.vercel.app',
+      'http://localhost:3000',
+      'http://localhost:5500',
+      'http://127.0.0.1:5500',
+    ];
+    if (!origin || allowed.some(function(o) { return origin.startsWith(o); })) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ─── Health check ─────────────────────────────────────────────
-app.get('/api/health', (req, res) => {
+app.get('/api/health', function(req, res) {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// ─── API Routes ───────────────────────────────────────────────
 app.use('/api/tasks',      tasksRouter);
 app.use('/api/flashcards', flashcardsRouter);
 app.use('/api/materials',  materialsRouter);
 app.use('/api/profile',    profileRouter);
 app.use('/api/sessions',   sessionsRouter);
 app.use('/api/ai',         aiRouter);
+app.use('/api/chats',      chatsRouter);
 
-// ─── 404 ──────────────────────────────────────────────────────
-app.use((req, res) => {
+app.use(function(req, res) {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// ─── Error handler ────────────────────────────────────────────
-app.use((err, req, res, next) => {
+app.use(function(err, req, res, next) {
   console.error(err.stack);
   res.status(500).json({ error: 'Internal server error', message: err.message });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Study Dashboard API running on port ${PORT}`);
+app.listen(PORT, function() {
+  console.log('chạy ở ' + PORT);
 });

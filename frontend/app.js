@@ -8,7 +8,7 @@
 // ─── Config ──────────────────────────────────────────
 const API = window.location.hostname === 'localhost'
   ? 'http://localhost:3001/api'
-  : 'https://study-dashboard-api-b17y.onrender.com'; // ← Replace with your Render URL
+  : 'https://YOUR-RENDER-APP.onrender.com/api'; // ← Replace with your Render URL
 
 // ─── State ───────────────────────────────────────────
 let tasks = [];
@@ -79,6 +79,7 @@ function navigate(page) {
   if (page === 'flashcards') loadFlashcards();
   if (page === 'stats') loadStats();
   if (page === 'profile') loadProfile();
+  if (page === 'ai') loadChatHistory();
 }
 
 document.querySelectorAll('.nav-item').forEach(item => {
@@ -691,6 +692,153 @@ async function logSession() {
 }
 
 // ─── AI TUTOR ─────────────────────────────────────────
+let currentSubject = 'Chung';
+let currentChatId = null;
+let chatSessions = [];
+
+function selectSubject(btn) {
+  document.querySelectorAll('.ai-subj-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentSubject = btn.dataset.subject;
+  const icon = btn.dataset.icon;
+  $('aiSubjectIcon').textContent = icon;
+  $('aiSubjectName').textContent = btn.querySelector('.asb-name').textContent;
+
+  // Reset chat for new subject
+  newChat(false);
+  const greetings = {
+    'Toán': '📐 Xin chào! Tôi là gia sư Toán của bạn. Hãy đưa ra bài toán hoặc khái niệm bạn cần giải thích!',
+    'Lý': '⚡ Xin chào! Tôi chuyên về Vật Lý. Hỏi tôi về cơ học, điện học, quang học...',
+    'Hóa': '🧪 Xin chào! Tôi là gia sư Hóa Học. Cần cân bằng phương trình hay giải thích phản ứng? Cứ hỏi!',
+    'Văn': '📖 Xin chào! Tôi chuyên về Ngữ Văn. Phân tích tác phẩm, làm văn nghị luận — tôi sẵn sàng!',
+    'Ngoại ngữ 1': '🌍 Hello! I am your English tutor. Tôi có thể giúp bạn về ngữ pháp, từ vựng, và luyện thi!',
+    'Lịch sử': '🏛️ Xin chào! Tôi chuyên về Lịch Sử. Hỏi tôi về các sự kiện, nhân vật và giai đoạn lịch sử!',
+    'Sinh': '🔬 Xin chào! Tôi là gia sư Sinh Học. Di truyền, tế bào, sinh thái — hỏi gì cũng được!',
+    'Chung': '🤖 Xin chào! Tôi là Gia sư AI của bạn. Hãy chọn môn học bên phải hoặc đặt câu hỏi bất kỳ!',
+  };
+  const greeting = greetings[currentSubject] || greetings['Chung'];
+  $('chatMessages').innerHTML = `
+    <div class="chat-msg ai">
+      <div class="chat-avatar">${icon}</div>
+      <div class="chat-bubble"><p>${greeting}</p></div>
+    </div>`;
+}
+
+async function loadChatHistory() {
+  try {
+    chatSessions = await apiFetch('/chats');
+    renderChatHistory();
+  } catch { /* ignore */ }
+}
+
+function renderChatHistory() {
+  const list = $('aiHistoryList');
+  if (!chatSessions.length) {
+    list.innerHTML = '<div style="padding:0.8rem;font-size:0.72rem;color:var(--text-muted);text-align:center">Chưa có lịch sử</div>';
+    return;
+  }
+  list.innerHTML = chatSessions.map(s => `
+    <div class="ai-history-item ${s.id === currentChatId ? 'active' : ''}" onclick="loadChatSession(${s.id})">
+      <div class="ahi-subject">${escHtml(s.subject || 'Chung')}</div>
+      <div class="ahi-title">${escHtml(s.title || 'Cuộc trò chuyện')}</div>
+      <div class="ahi-date">${formatTimeAgo(s.updated_at)}</div>
+      <button class="ahi-delete" onclick="event.stopPropagation();deleteChatSession(${s.id})">✕</button>
+    </div>
+  `).join('');
+}
+
+async function loadChatSession(id) {
+  try {
+    const session = await apiFetch('/chats/' + id);
+    currentChatId = id;
+    chatHistory = session.messages || [];
+    currentSubject = session.subject || 'Chung';
+
+    // Update subject button
+    document.querySelectorAll('.ai-subj-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.subject === currentSubject);
+      if (b.dataset.subject === currentSubject) {
+        $('aiSubjectIcon').textContent = b.dataset.icon;
+        $('aiSubjectName').textContent = b.querySelector('.asb-name').textContent;
+      }
+    });
+
+    // Render messages
+    const container = $('chatMessages');
+    container.innerHTML = chatHistory.map(m => `
+      <div class="chat-msg ${m.role === 'user' ? 'user' : 'ai'}">
+        <div class="chat-avatar">${m.role === 'user' ? '👤' : '🤖'}</div>
+        <div class="chat-bubble">${m.role === 'user' ? escHtml(m.content) : formatAIResponse(m.content)}</div>
+      </div>
+    `).join('');
+    container.scrollTop = container.scrollHeight;
+    renderChatHistory();
+  } catch (err) { toast('Lỗi tải chat', 'error'); }
+}
+
+async function saveChatSession() {
+  if (!chatHistory.length) return toast('Chưa có tin nhắn để lưu', 'error');
+  const firstMsg = chatHistory.find(m => m.role === 'user');
+  const title = firstMsg ? firstMsg.content.substring(0, 40) + (firstMsg.content.length > 40 ? '...' : '') : 'Cuộc trò chuyện';
+  try {
+    if (currentChatId) {
+      await apiFetch('/chats/' + currentChatId, {
+        method: 'PUT',
+        body: JSON.stringify({ title, messages: chatHistory }),
+      });
+    } else {
+      const session = await apiFetch('/chats', {
+        method: 'POST',
+        body: JSON.stringify({ title, subject: currentSubject, messages: chatHistory }),
+      });
+      currentChatId = session.id;
+    }
+    await loadChatHistory();
+    toast('Đã lưu cuộc trò chuyện! 💾');
+  } catch (err) { toast('Lỗi lưu chat', 'error'); }
+}
+
+async function deleteChatSession(id) {
+  try {
+    await apiFetch('/chats/' + id, { method: 'DELETE' });
+    if (currentChatId === id) newChat(false);
+    chatSessions = chatSessions.filter(s => s.id !== id);
+    renderChatHistory();
+    toast('Đã xóa cuộc trò chuyện');
+  } catch (err) { toast('Lỗi xóa', 'error'); }
+}
+
+function newChat(resetSubject = true) {
+  currentChatId = null;
+  chatHistory = [];
+  if (resetSubject) {
+    currentSubject = 'Chung';
+    document.querySelectorAll('.ai-subj-btn').forEach(b => b.classList.toggle('active', b.dataset.subject === 'Chung'));
+    $('aiSubjectIcon').textContent = '🤖';
+    $('aiSubjectName').textContent = 'Gia sư AI';
+  }
+  $('chatMessages').innerHTML = `
+    <div class="chat-msg ai">
+      <div class="chat-avatar">🤖</div>
+      <div class="chat-bubble">
+        <p>Xin chào! Tôi là Gia sư AI của bạn. ✨</p>
+        <p>Hãy chọn môn học bên phải rồi đặt câu hỏi nhé!</p>
+      </div>
+    </div>`;
+  $('suggestedPrompts').style.display = 'flex';
+  renderChatHistory();
+}
+
+function formatTimeAgo(dateStr) {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diff = Math.floor((now - d) / 1000);
+  if (diff < 60) return 'Vừa xong';
+  if (diff < 3600) return Math.floor(diff/60) + ' phút trước';
+  if (diff < 86400) return Math.floor(diff/3600) + ' giờ trước';
+  return Math.floor(diff/86400) + ' ngày trước';
+}
+
 function handleChatKey(e) {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
@@ -709,6 +857,7 @@ async function sendMessage() {
   const msg = input.value.trim();
   if (!msg) return;
   input.value = '';
+  $('suggestedPrompts').style.display = 'none';
 
   const messages = $('chatMessages');
   messages.innerHTML += `
@@ -729,7 +878,7 @@ async function sendMessage() {
   try {
     const data = await apiFetch('/ai/chat', {
       method: 'POST',
-      body: JSON.stringify({ message: msg, history: chatHistory.slice(-10) }),
+      body: JSON.stringify({ message: msg, history: chatHistory.slice(-10), subject: currentSubject }),
     });
     $('typingIndicator')?.remove();
     const reply = data.reply;
@@ -744,7 +893,7 @@ async function sendMessage() {
     messages.innerHTML += `
       <div class="chat-msg ai">
         <div class="chat-avatar">🤖</div>
-        <div class="chat-bubble">Sorry, I couldn't respond right now. Make sure the backend is connected!</div>
+        <div class="chat-bubble">Xin lỗi, không thể kết nối. Hãy thử lại!</div>
       </div>`;
   }
   messages.scrollTop = messages.scrollHeight;
@@ -758,12 +907,13 @@ function formatAIResponse(text) {
 }
 
 function clearChat() {
+  chatHistory = [];
+  currentChatId = null;
   $('chatMessages').innerHTML = `
     <div class="chat-msg ai">
       <div class="chat-avatar">🤖</div>
-      <div class="chat-bubble"><p>Chat cleared! What would you like to study today?</p></div>
+      <div class="chat-bubble"><p>Chat đã được xóa! Hỏi tôi bất cứ điều gì nhé 😊</p></div>
     </div>`;
-  chatHistory = [];
   $('suggestedPrompts').style.display = 'flex';
 }
 

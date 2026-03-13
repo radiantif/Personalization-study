@@ -1673,3 +1673,213 @@ select.input-field option {
   .fc-card { width: 90vw; }
   .page-header { flex-direction: column; gap: 0.8rem; }
 }
+
+/* ─── AI FULL LAYOUT (3-column) ─────────────────────── */
+#page-ai { display: none; }
+#page-ai.active { display: flex; flex-direction: column; }
+
+.ai-full-layout {
+  display: grid;
+  grid-template-columns: 200px 1fr 160px;
+  height: calc(100vh - 0px);
+  overflow: hidden;
+}
+
+/* Left: History Panel */
+.ai-history-panel {
+  border-right: 1px solid var(--card-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: rgba(0,0,0,0.15);
+}
+
+.ai-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 0.9rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.btn-new-chat {
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--text);
+  font-size: 0.85rem;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btn-new-chat:hover { background: var(--accent); border-color: var(--accent); }
+
+.ai-history-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ai-history-item {
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all var(--transition);
+  position: relative;
+}
+
+.ai-history-item:hover { background: var(--card-bg); }
+.ai-history-item.active { background: rgba(124,111,255,0.12); border-left: 2px solid var(--accent); }
+
+.ahi-subject {
+  font-size: 0.62rem;
+  color: var(--accent);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ahi-title {
+  font-size: 0.75rem;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+.ahi-date {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.ahi-delete {
+  position: absolute;
+  top: 4px; right: 4px;
+  opacity: 0;
+  width: 18px; height: 18px;
+  border-radius: 4px;
+  background: rgba(255,100,100,0.15);
+  color: #ff6464;
+  font-size: 0.65rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity var(--transition);
+}
+.ai-history-item:hover .ahi-delete { opacity: 1; }
+
+/* Center: Chat */
+.ai-chat-center {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ai-chat-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.8rem 1.2rem;
+  border-bottom: 1px solid var(--card-border);
+  background: rgba(0,0,0,0.1);
+  flex-shrink: 0;
+}
+
+.ai-current-subject {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+#aiSubjectIcon { font-size: 1.2rem; }
+
+.ai-topbar-actions { display: flex; gap: 0.5rem; }
+
+.btn-sm {
+  padding: 0.3rem 0.7rem !important;
+  font-size: 0.75rem !important;
+}
+
+/* Right: Subject Panel */
+.ai-subject-panel {
+  border-left: 1px solid var(--card-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: rgba(0,0,0,0.15);
+}
+
+.ai-subject-header {
+  padding: 1rem 0.9rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.ai-subject-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ai-subj-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0.6rem 0.7rem;
+  border-radius: 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+  text-align: left;
+}
+
+.ai-subj-btn:hover {
+  background: var(--card-bg);
+  border-color: var(--card-border);
+  color: var(--text);
+}
+
+.ai-subj-btn.active {
+  background: rgba(124,111,255,0.12);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.asb-icon { font-size: 1.1rem; flex-shrink: 0; }
+.asb-name { font-size: 0.78rem; font-weight: 500; }
+
+/* Responsive AI layout */
+@media (max-width: 900px) {
+  .ai-full-layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
+  .ai-history-panel { display: none; }
+  .ai-subject-panel {
+    border-left: none;
+    border-top: 1px solid var(--card-border);
+    flex-direction: row;
+    height: auto;
+  }
+  .ai-subject-list { flex-direction: row; overflow-x: auto; padding: 0.4rem; }
+  .ai-subject-header { display: none; }
+  .ai-subj-btn { flex-direction: column; gap: 2px; padding: 0.4rem 0.6rem; }
+  .asb-name { font-size: 0.65rem; }
+}
