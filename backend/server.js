@@ -22,19 +22,22 @@ const PORT = process.env.PORT || 3001;
 // ─── CORS ─────────────────────────────────────────────
 app.use(cors({
   origin: function(origin, callback) {
+    // Cho phép nếu không có origin (Postman, server-to-server)
+    if (!origin) return callback(null, true);
+    
     const allowed = [
-      process.env.FRONTEND_URL,
+      'https://personalization-study.vercel.app',
       'http://localhost:3000',
       'http://localhost:5500',
       'http://127.0.0.1:5500',
-    ].filter(Boolean);
-    if (!origin || allowed.some(function(o) {
-      return origin.startsWith(o.replace(/\/$/, ''));
-    })) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
+    ];
+    
+    const ok = allowed.some(function(o) {
+      return origin === o || origin.startsWith(o);
+    });
+    
+    if (ok) callback(null, true);
+    else callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
 }));
