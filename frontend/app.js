@@ -1037,13 +1037,16 @@ function isOverdue(dateStr) {
 let currentUser = null;
 
 async function checkAuth() {
-  // Nếu đang ở trang login thì không check
   if (window.location.pathname.includes('login')) return false;
   try {
-    const res = await fetch(API.replace('/api','') + '/api/auth/me', {
+    const res = await fetch(API.replace('/api', '') + '/api/auth/me', {
       credentials: 'include',
-      signal: AbortSignal.timeout(8000)
+      signal: AbortSignal.timeout(10000)
     });
+    if (!res.ok) {
+      window.location.href = '/login.html';
+      return false;
+    }
     const data = await res.json();
     if (!data.authenticated) {
       window.location.href = '/login.html';
@@ -1051,9 +1054,18 @@ async function checkAuth() {
     }
     currentUser = data.user;
     return true;
-  } catch {
-    // Backend đang ngủ (Render free tier) - hiện thông báo thay vì redirect loop
-    toast('⏳ lỗi vui lòng thử lại', 'error');
+  } catch (err) {
+    console.warn('Auth check failed:', err.message);
+    // Backend đang wake up - không redirect ngay, đợi rồi thử lại
+    await new Promise(r => setTimeout(r, 3000));
+    try {
+      const res2 = await fetch(API.replace('/api', '') + '/api/auth/me', {
+        credentials: 'include'
+      });
+      const data2 = await res2.json();
+      if (data2.authenticated) { currentUser = data2.user; return true; }
+    } catch {}
+    window.location.href = '/login.html';
     return false;
   }
 }

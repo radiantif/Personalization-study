@@ -212,7 +212,9 @@ async function doLogin() {
     });
     const data = await res.json();
     if (!res.ok) { showError('loginError', data.error); btn.disabled = false; btn.textContent = 'Đăng nhập'; return; }
-    window.location.href = '/';
+    // Đợi cookie được set xong rồi mới redirect
+await new Promise(r => setTimeout(r, 500));
+window.location.href = '/'; 
   } catch {
     showError('loginError', 'Không thể kết nối server. Vui lòng thử lại.');
     btn.disabled = false; btn.textContent = 'Đăng nhập';
