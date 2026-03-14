@@ -1,601 +1,213 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>StudyFlow — Your Learning Universe</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Kaisei+Decol:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="style.css" />
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>StudyFlow — Đăng nhập</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Kaisei+Decol:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #0a0b14;
+    color: #e8eaf6;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .bg {
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 70% 40%, rgba(124,111,255,0.12) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 40% at 20% 70%, rgba(255,111,176,0.08) 0%, transparent 60%);
+  }
+
+  .particles { position: fixed; inset: 0; pointer-events: none; }
+  .p { position: absolute; border-radius: 50%; background: #7c6fff; animation: fp linear infinite; opacity: 0; }
+  @keyframes fp {
+    0% { opacity:0; transform:translateY(0) scale(0); }
+    10% { opacity:0.5; }
+    90% { opacity:0.2; }
+    100% { opacity:0; transform:translateY(-100px) scale(1); }
+  }
+
+  .login-card {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 400px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 24px;
+    padding: 2.5rem;
+    backdrop-filter: blur(20px);
+    text-align: center;
+    animation: slideUp 0.6s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  @keyframes slideUp {
+    from { opacity:0; transform:translateY(30px) scale(0.95); }
+    to { opacity:1; transform:translateY(0) scale(1); }
+  }
+
+  .logo { font-size: 2.5rem; margin-bottom: 0.5rem; animation: spin 8s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .brand {
+    font-family: 'Kaisei Decol', serif;
+    font-size: 1.8rem;
+    color: #e8eaf6;
+    margin-bottom: 0.4rem;
+  }
+
+  .tagline {
+    font-size: 0.85rem;
+    color: rgba(232,234,246,0.5);
+    margin-bottom: 2rem;
+    line-height: 1.5;
+  }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 1.5rem;
+    color: rgba(232,234,246,0.3);
+    font-size: 0.75rem;
+  }
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255,255,255,0.08);
+  }
+
+  .google-btn {
+    width: 100%;
+    padding: 0.9rem 1.5rem;
+    background: white;
+    color: #1a1a2e;
+    border: none;
+    border-radius: 14px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    text-decoration: none;
+  }
+
+  .google-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+  }
+
+  .google-icon {
+    width: 22px; height: 22px;
+  }
+
+  .features {
+    margin-top: 2rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+  }
+
+  .feat {
+    padding: 0.6rem;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    font-size: 0.75rem;
+    color: rgba(232,234,246,0.6);
+  }
+
+  .feat-icon { font-size: 1rem; margin-bottom: 3px; }
+
+  .error-msg {
+    margin-bottom: 1rem;
+    padding: 0.7rem;
+    background: rgba(255,100,100,0.1);
+    border: 1px solid rgba(255,100,100,0.2);
+    border-radius: 10px;
+    font-size: 0.8rem;
+    color: #ff8080;
+    display: none;
+  }
+
+  .footer-note {
+    margin-top: 1.5rem;
+    font-size: 0.7rem;
+    color: rgba(232,234,246,0.3);
+  }
+</style>
 </head>
-<body data-theme="dark">
+<body>
+<div class="bg"></div>
+<div class="particles" id="particles"></div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     SIDEBAR
-════════════════════════════════════════════════════════════ -->
-<aside class="sidebar" id="sidebar">
-  <div class="sidebar-brand">
-    <span class="brand-icon">✦</span>
-    <span class="brand-name">StudyFlow</span>
+<div class="login-card">
+  <div class="logo">✦</div>
+  <div class="brand">StudyFlow</div>
+  <p class="tagline">Trợ lý học tập thông minh của bạn.<br/>Đăng nhập để bắt đầu hành trình!</p>
+
+  <div class="error-msg" id="errorMsg">Đăng nhập thất bại. Vui lòng thử lại.</div>
+
+  <div class="divider">Đăng nhập với</div>
+
+  <a class="google-btn" id="googleBtn" href="#">
+    <svg class="google-icon" viewBox="0 0 24 24">
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+    </svg>
+    Tiếp tục với Google
+  </a>
+
+  <div class="features">
+    <div class="feat"><div class="feat-icon">✅</div>Quản lý Tasks</div>
+    <div class="feat"><div class="feat-icon">🃏</div>Flashcards</div>
+    <div class="feat"><div class="feat-icon">🤖</div>AI Gia sư</div>
+    <div class="feat"><div class="feat-icon">📊</div>Thống kê</div>
   </div>
 
-  <div class="sidebar-avatar" id="sidebarAvatar">
-    <div class="avatar-orb">🎓</div>
-    <div class="avatar-info">
-      <div class="avatar-name" id="avatarName">Student</div>
-      <div class="avatar-level">
-        <span id="avatarLevel">Lv.1</span>
-        <div class="exp-bar"><div class="exp-fill" id="expFill"></div></div>
-      </div>
-    </div>
-  </div>
+  <p class="footer-note">Bằng cách đăng nhập, bạn đồng ý với điều khoản sử dụng của StudyFlow.</p>
+</div>
 
-  <nav class="sidebar-nav">
-    <a class="nav-item active" data-page="home">
-      <span class="nav-icon">🏠</span><span class="nav-label">Home</span>
-    </a>
-    <a class="nav-item" data-page="tasks">
-      <span class="nav-icon">✅</span><span class="nav-label">Tasks</span>
-      <span class="nav-badge" id="taskBadge"></span>
-    </a>
-    <a class="nav-item" data-page="materials">
-      <span class="nav-icon">📚</span><span class="nav-label">Study Materials</span>
-    </a>
-    <a class="nav-item" data-page="flashcards">
-      <span class="nav-icon">🃏</span><span class="nav-label">Flashcards</span>
-    </a>
-    <a class="nav-item" data-page="stats">
-      <span class="nav-icon">📊</span><span class="nav-label">Statistics</span>
-    </a>
-    <a class="nav-item" data-page="ai">
-      <span class="nav-icon">🤖</span><span class="nav-label">AI Tutor</span>
-    </a>
-    <a class="nav-item" data-page="profile">
-      <span class="nav-icon">👤</span><span class="nav-label">Profile</span>
-    </a>
-    <a class="nav-item" data-page="themes">
-      <span class="nav-icon">🎨</span><span class="nav-label">Themes</span>
-    </a>
-  </nav>
+<script>
+  const BACKEND = 'https://study-dashboard-api-b17y.onrender.com';
 
-  <div class="sidebar-timer-mini" id="sidebarTimer">
-    <span class="timer-mini-label">Study Timer</span>
-    <span class="timer-mini-display" id="miniTimerDisplay">00:00:00</span>
-    <div class="timer-mini-controls">
-      <button onclick="toggleStudyTimer()" id="timerBtn">▶</button>
-      <button onclick="stopStudyTimer()">⏹</button>
-    </div>
-  </div>
-</aside>
+  // Chỉ check auth nếu có param login=success
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('login') === 'success') {
+    window.location.href = '/';
+  }
+  if (params.get('error')) {
+    document.getElementById('errorMsg').style.display = 'block';
+  }
 
-<!-- ═══════════════════════════════════════════════════════════
-     MAIN CONTENT
-════════════════════════════════════════════════════════════ -->
-<main class="main-content">
+  // Google login button
+  document.getElementById('googleBtn').href = BACKEND + '/api/auth/google';
 
-  <!-- ── PAGE: HOME ──────────────────────────────────────────── -->
-  <section class="page active" id="page-home">
-    <div class="home-bg">
-      <div class="home-bg-art"></div>
-      <div class="home-overlay"></div>
-      <div class="floating-particles" id="particles"></div>
-    </div>
-
-    <div class="home-content">
-      <div class="home-left">
-        <div class="countdown-card" id="countdownCard">
-          <div class="countdown-label">
-            <span class="cd-icon">📅</span> Exam Countdown
-          </div>
-          <div class="countdown-blocks">
-            <div class="cd-block">
-              <span class="cd-num" id="cdDays">—</span>
-              <span class="cd-unit">Days</span>
-            </div>
-            <div class="cd-sep">:</div>
-            <div class="cd-block">
-              <span class="cd-num" id="cdHours">—</span>
-              <span class="cd-unit">Hours</span>
-            </div>
-            <div class="cd-sep">:</div>
-            <div class="cd-block">
-              <span class="cd-num" id="cdMins">—</span>
-              <span class="cd-unit">Minutes</span>
-            </div>
-          </div>
-          <div class="cd-exam-name" id="cdExamName">Set your exam date in Profile →</div>
-        </div>
-
-        <div class="home-stats-row">
-          <div class="home-stat-card">
-            <span class="hs-icon">⚡</span>
-            <div><div class="hs-num" id="hsTodayHours">0h 0m</div><div class="hs-label">Today</div></div>
-          </div>
-          <div class="home-stat-card">
-            <span class="hs-icon">🔥</span>
-            <div><div class="hs-num" id="hsWeekHours">0h 0m</div><div class="hs-label">This Week</div></div>
-          </div>
-          <div class="home-stat-card">
-            <span class="hs-icon">🏆</span>
-            <div><div class="hs-num" id="hsBestSubject">—</div><div class="hs-label">Best Subject</div></div>
-          </div>
-        </div>
-
-        <div class="quick-actions">
-          <h3>Quick Actions</h3>
-          <div class="qa-grid">
-            <button class="qa-btn" onclick="navigate('tasks')">
-              <span>➕</span> Add Task
-            </button>
-            <button class="qa-btn" onclick="navigate('flashcards')">
-              <span>🃏</span> Study Cards
-            </button>
-            <button class="qa-btn" onclick="navigate('ai')">
-              <span>🤖</span> Ask AI
-            </button>
-            <button class="qa-btn" onclick="navigate('materials')">
-              <span>📁</span> Materials
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ── PAGE: TASKS ─────────────────────────────────────────── -->
-  <section class="page" id="page-tasks">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">Task Manager</h1>
-        <p class="page-sub">Drag to reorder • Click to complete</p>
-      </div>
-    </div>
-
-    <div class="task-input-card card">
-      <div class="task-form-row">
-        <input type="text" id="taskTitle" class="input-field" placeholder="Add a new task..." />
-        <input type="text" id="taskSubject" class="input-field input-sm" placeholder="Subject" />
-        <input type="date" id="taskDeadline" class="input-field input-sm" />
-        <button class="btn btn-primary" onclick="addTask()">+ Add</button>
-      </div>
-    </div>
-
-    <div class="task-filters">
-      <button class="filter-btn active" data-filter="all">All</button>
-      <button class="filter-btn" data-filter="pending">Pending</button>
-      <button class="filter-btn" data-filter="done">Completed</button>
-    </div>
-
-    <div class="tasks-list" id="tasksList">
-      <div class="loading-state">Loading tasks...</div>
-    </div>
-  </section>
-
-  <!-- ── PAGE: MATERIALS ─────────────────────────────────────── -->
-  <section class="page" id="page-materials">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">Study Materials</h1>
-        <p class="page-sub">Organize your notes, PDFs, and resources</p>
-      </div>
-      <button class="btn btn-primary" onclick="openModal('addMaterialModal')">+ Add Material</button>
-    </div>
-
-    <div class="subjects-row" id="subjectsRow">
-      <button class="subject-chip active" data-id="all">All</button>
-    </div>
-
-    <div class="materials-grid" id="materialsGrid">
-      <div class="loading-state">Loading materials...</div>
-    </div>
-
-    <!-- Add Material Modal -->
-    <div class="modal" id="addMaterialModal">
-      <div class="modal-content card">
-        <div class="modal-header">
-          <h2>Add Study Material</h2>
-          <button class="modal-close" onclick="closeModal('addMaterialModal')">✕</button>
-        </div>
-        <div class="modal-tabs">
-          <button class="mtab active" data-tab="note" onclick="setMaterialTab('note')">📝 Note</button>
-          <button class="mtab" data-tab="file" onclick="setMaterialTab('file')">📄 Upload File</button>
-        </div>
-        <div id="noteTab">
-          <input type="text" id="matTitle" class="input-field" placeholder="Title" />
-          <select id="matSubject" class="input-field"></select>
-          <textarea id="matContent" class="input-field textarea" placeholder="Write your notes here..."></textarea>
-        </div>
-        <div id="fileTab" style="display:none">
-          <input type="text" id="matFileTitle" class="input-field" placeholder="Title (optional)" />
-          <select id="matFileSubject" class="input-field"></select>
-          <div class="file-drop-zone" id="fileDropZone">
-            <span class="fdz-icon">📎</span>
-            <span>Drop PDF or image here, or click to browse</span>
-            <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.gif,.webp" style="display:none" />
-          </div>
-          <div id="filePreview" class="file-preview"></div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-ghost" onclick="closeModal('addMaterialModal')">Cancel</button>
-          <button class="btn btn-primary" onclick="addMaterial()">Save</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Add Subject Modal -->
-    <div class="modal" id="addSubjectModal">
-      <div class="modal-content card">
-        <div class="modal-header">
-          <h2>Create Subject Folder</h2>
-          <button class="modal-close" onclick="closeModal('addSubjectModal')">✕</button>
-        </div>
-        <input type="text" id="newSubjectName" class="input-field" placeholder="Subject name" />
-        <div class="color-picker-row">
-          <label>Color:</label>
-          <input type="color" id="newSubjectColor" value="#6366f1" class="color-input" />
-        </div>
-        <div class="icon-picker">
-          <span class="icon-opt" onclick="selectIcon(this)" data-icon="📁">📁</span>
-          <span class="icon-opt" onclick="selectIcon(this)" data-icon="📐">📐</span>
-          <span class="icon-opt" onclick="selectIcon(this)" data-icon="📖">📖</span>
-          <span class="icon-opt" onclick="selectIcon(this)" data-icon="⚡">⚡</span>
-          <span class="icon-opt" onclick="selectIcon(this)" data-icon="🧪">🧪</span>
-          <span class="icon-opt" onclick="selectIcon(this)" data-icon="🏛️">🏛️</span>
-          <span class="icon-opt selected" onclick="selectIcon(this)" data-icon="🔬">🔬</span>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-ghost" onclick="closeModal('addSubjectModal')">Cancel</button>
-          <button class="btn btn-primary" onclick="createSubject()">Create</button>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ── PAGE: FLASHCARDS ────────────────────────────────────── -->
-  <section class="page" id="page-flashcards">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">Flashcards</h1>
-        <p class="page-sub">Spaced repetition study system</p>
-      </div>
-      <button class="btn btn-primary" onclick="openModal('addCardModal')">+ New Card</button>
-    </div>
-
-    <div class="fc-subject-filter" id="fcSubjectFilter"></div>
-
-    <div class="fc-study-area" id="fcStudyArea">
-      <div class="fc-card-container">
-        <div class="fc-card" id="fcCard" onclick="flipCard()">
-          <div class="fc-card-inner" id="fcCardInner">
-            <div class="fc-front">
-              <div class="fc-label">Question</div>
-              <div class="fc-text" id="fcQuestion">Create your first flashcard to begin studying!</div>
-              <div class="fc-hint">Click to reveal answer</div>
-            </div>
-            <div class="fc-back">
-              <div class="fc-label">Answer</div>
-              <div class="fc-text" id="fcAnswer">—</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="fc-nav">
-        <button class="btn btn-ghost" onclick="prevCard()">← Prev</button>
-        <span class="fc-counter" id="fcCounter">0 / 0</span>
-        <button class="btn btn-ghost" onclick="nextCard()">Next →</button>
-      </div>
-      <div class="fc-subject-tag" id="fcCardSubject"></div>
-    </div>
-
-    <div class="fc-deck" id="fcDeck"></div>
-
-    <!-- Add Card Modal -->
-    <div class="modal" id="addCardModal">
-      <div class="modal-content card">
-        <div class="modal-header">
-          <h2>New Flashcard</h2>
-          <button class="modal-close" onclick="closeModal('addCardModal')">✕</button>
-        </div>
-        <input type="text" id="cardSubject" class="input-field" placeholder="Subject (e.g. Biology)" />
-        <textarea id="cardQuestion" class="input-field textarea" placeholder="Question..." rows="3"></textarea>
-        <textarea id="cardAnswer" class="input-field textarea" placeholder="Answer..." rows="3"></textarea>
-        <div class="modal-footer">
-          <button class="btn btn-ghost" onclick="closeModal('addCardModal')">Cancel</button>
-          <button class="btn btn-primary" onclick="addFlashcard()">Create Card</button>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ── PAGE: STATISTICS ────────────────────────────────────── -->
-  <section class="page" id="page-stats">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">Study Statistics</h1>
-        <p class="page-sub">Track your learning progress</p>
-      </div>
-      <button class="btn btn-primary" onclick="openModal('logSessionModal')">+ Log Session</button>
-    </div>
-
-    <div class="stats-grid">
-      <div class="stat-card card primary-glow">
-        <div class="stat-icon">⚡</div>
-        <div class="stat-data">
-          <div class="stat-num" id="statToday">0h 0m</div>
-          <div class="stat-label">Today</div>
-        </div>
-      </div>
-      <div class="stat-card card">
-        <div class="stat-icon">📅</div>
-        <div class="stat-data">
-          <div class="stat-num" id="statWeek">0h 0m</div>
-          <div class="stat-label">This Week</div>
-        </div>
-      </div>
-      <div class="stat-card card">
-        <div class="stat-icon">🏆</div>
-        <div class="stat-data">
-          <div class="stat-num" id="statBest">—</div>
-          <div class="stat-label">Best Subject</div>
-        </div>
-      </div>
-      <div class="stat-card card">
-        <div class="stat-icon">📚</div>
-        <div class="stat-data">
-          <div class="stat-num" id="statTotal">0h</div>
-          <div class="stat-label">Total Hours</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="stats-charts-row">
-      <div class="chart-card card">
-        <h3>Weekly Progress</h3>
-        <div class="bar-chart" id="weekChart"></div>
-      </div>
-      <div class="chart-card card">
-        <h3>Subject Breakdown</h3>
-        <div class="subject-chart" id="subjectChart"></div>
-      </div>
-    </div>
-
-    <!-- Log Session Modal -->
-    <div class="modal" id="logSessionModal">
-      <div class="modal-content card">
-        <div class="modal-header">
-          <h2>Log Study Session</h2>
-          <button class="modal-close" onclick="closeModal('logSessionModal')">✕</button>
-        </div>
-        <input type="text" id="sessionSubject" class="input-field" placeholder="Subject" />
-        <div class="duration-input">
-          <input type="number" id="sessionHours" class="input-field input-sm" placeholder="Hours" min="0" max="24" />
-          <input type="number" id="sessionMins" class="input-field input-sm" placeholder="Minutes" min="0" max="59" />
-        </div>
-        <input type="text" id="sessionNote" class="input-field" placeholder="Note (optional)" />
-        <div class="modal-footer">
-          <button class="btn btn-ghost" onclick="closeModal('logSessionModal')">Cancel</button>
-          <button class="btn btn-primary" onclick="logSession()">Log</button>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ── PAGE: AI TUTOR ──────────────────────────────────────── -->
-  <section class="page" id="page-ai">
-    <div class="ai-full-layout">
-
-      <!-- Left: Chat History -->
-      <div class="ai-history-panel">
-        <div class="ai-history-header">
-          <span>💬 Lịch sử</span>
-          <button class="btn-new-chat" onclick="newChat()" title="Cuộc trò chuyện mới">✏️</button>
-        </div>
-        <div class="ai-history-list" id="aiHistoryList">
-          <div class="loading-state" style="padding:1rem;font-size:0.75rem">Đang tải...</div>
-        </div>
-      </div>
-
-      <!-- Center: Chat Area -->
-      <div class="ai-chat-center">
-        <div class="ai-chat-topbar">
-          <div class="ai-current-subject" id="aiCurrentSubjectLabel">
-            <span id="aiSubjectIcon">🤖</span>
-            <span id="aiSubjectName">Gia sư AI</span>
-          </div>
-          <div class="ai-topbar-actions">
-            <button class="btn btn-ghost btn-sm" onclick="clearChat()">🗑️ Xóa</button>
-            <button class="btn btn-ghost btn-sm" onclick="saveChatSession()">💾 Lưu</button>
-          </div>
-        </div>
-
-        <div class="chat-messages" id="chatMessages">
-          <div class="chat-msg ai">
-            <div class="chat-avatar">🤖</div>
-            <div class="chat-bubble">
-              <p>Xin chào! Tôi là Gia sư AI của bạn. ✨</p>
-              <p>Hãy chọn môn học bên phải rồi đặt câu hỏi. Tôi sẽ giải thích rõ ràng và giúp bạn học tốt hơn!</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="chat-input-area">
-          <div class="suggested-prompts" id="suggestedPrompts">
-            <button class="prompt-chip" onclick="sendSuggestion(this)">Giải thích quang hợp</button>
-            <button class="prompt-chip" onclick="sendSuggestion(this)">Định luật Newton là gì?</button>
-            <button class="prompt-chip" onclick="sendSuggestion(this)">Giải phương trình bậc 2</button>
-            <button class="prompt-chip" onclick="sendSuggestion(this)">Nguyên nhân Thế chiến 2</button>
-          </div>
-          <div class="chat-input-row">
-            <textarea class="chat-input" id="chatInput" placeholder="Nhập câu hỏi của bạn..." rows="1" onkeydown="handleChatKey(event)"></textarea>
-            <button class="chat-send-btn" onclick="sendMessage()" id="chatSendBtn"><span>↑</span></button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Right: Subject Selector -->
-      <div class="ai-subject-panel">
-        <div class="ai-subject-header">📚 Chọn môn học</div>
-        <div class="ai-subject-list" id="aiSubjectList">
-          <button class="ai-subj-btn active" data-subject="Chung" data-icon="🤖" onclick="selectSubject(this)">
-            <span class="asb-icon">🤖</span><span class="asb-name">Chung</span>
-          </button>
-          <button class="ai-subj-btn" data-subject="Toán" data-icon="📐" onclick="selectSubject(this)">
-            <span class="asb-icon">📐</span><span class="asb-name">Toán</span>
-          </button>
-          <button class="ai-subj-btn" data-subject="Lý" data-icon="⚡" onclick="selectSubject(this)">
-            <span class="asb-icon">⚡</span><span class="asb-name">Vật Lý</span>
-          </button>
-          <button class="ai-subj-btn" data-subject="Hóa" data-icon="🧪" onclick="selectSubject(this)">
-            <span class="asb-icon">🧪</span><span class="asb-name">Hóa Học</span>
-          </button>
-          <button class="ai-subj-btn" data-subject="Văn" data-icon="📖" onclick="selectSubject(this)">
-            <span class="asb-icon">📖</span><span class="asb-name">Ngữ Văn</span>
-          </button>
-          <button class="ai-subj-btn" data-subject="Ngoại ngữ 1" data-icon="🌍" onclick="selectSubject(this)">
-            <span class="asb-icon">🌍</span><span class="asb-name">Ngoại ngữ 1</span>
-          </button>
-          <button class="ai-subj-btn" data-subject="Lịch sử" data-icon="🏛️" onclick="selectSubject(this)">
-            <span class="asb-icon">🏛️</span><span class="asb-name">Lịch Sử</span>
-          </button>
-          <button class="ai-subj-btn" data-subject="Sinh" data-icon="🔬" onclick="selectSubject(this)">
-            <span class="asb-icon">🔬</span><span class="asb-name">Sinh Học</span>
-          </button>
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- ── PAGE: PROFILE ───────────────────────────────────────── -->
-  <section class="page" id="page-profile">
-    <div class="page-header">
-      <h1 class="page-title">Profile</h1>
-    </div>
-    <div class="profile-layout">
-      <div class="profile-card card">
-        <div class="profile-avatar-wrap">
-          <div class="profile-avatar" id="profileAvatar" onclick="openAvatarUpload()" title="Click để đổi ảnh">🎓
-            <div class="avatar-upload-overlay">📷</div>
-          </div>
-          <button class="btn btn-ghost btn-upload-avatar" onclick="openAvatarUpload()">📷 Tải ảnh lên</button>
-          <div class="avatar-picker">
-            <span class="av-opt" onclick="selectAvatar(this)">🎓</span>
-            <span class="av-opt" onclick="selectAvatar(this)">🦊</span>
-            <span class="av-opt" onclick="selectAvatar(this)">🐼</span>
-            <span class="av-opt" onclick="selectAvatar(this)">🐸</span>
-            <span class="av-opt" onclick="selectAvatar(this)">🌸</span>
-            <span class="av-opt" onclick="selectAvatar(this)">⭐</span>
-            <span class="av-opt" onclick="selectAvatar(this)">🌙</span>
-            <span class="av-opt" onclick="selectAvatar(this)">🔥</span>
-          </div>
-          <button class="btn btn-logout" onclick="logout()">🚪 Đăng xuất</button>
-        </div>
-        <div class="profile-info-section">
-          <input type="text" id="profileName" class="input-field" placeholder="Your name" />
-          <div class="profile-level-row">
-            <span class="profile-level-badge" id="profileLevelBadge">Lv.1</span>
-            <div class="profile-exp">
-              <div class="exp-bar-full">
-                <div class="exp-fill-full" id="profileExpFill"></div>
-              </div>
-              <span class="exp-text" id="profileExpText">0 / 100 EXP</span>
-            </div>
-          </div>
-          <div class="profile-form-grid">
-            <div class="form-group">
-              <label>Exam Date</label>
-              <input type="date" id="profileExamDate" class="input-field" />
-            </div>
-            <div class="form-group">
-              <label>Target Subject</label>
-              <input type="text" id="profileTarget" class="input-field" placeholder="e.g. Math" />
-            </div>
-          </div>
-          <button class="btn btn-primary" onclick="saveProfile()">Save Profile</button>
-        </div>
-      </div>
-      <div class="profile-stats-card card">
-        <h3>Your Achievements</h3>
-        <div class="achievement-row" id="achievementRow">
-          <div class="achievement">
-            <span class="ach-icon">📚</span>
-            <span id="profileTotalHours">0h</span>
-            <span class="ach-label">Total Study</span>
-          </div>
-          <div class="achievement">
-            <span class="ach-icon">✅</span>
-            <span id="profileTasks">0</span>
-            <span class="ach-label">Tasks Done</span>
-          </div>
-          <div class="achievement">
-            <span class="ach-icon">🃏</span>
-            <span id="profileCards">0</span>
-            <span class="ach-label">Flashcards</span>
-          </div>
-        </div>
-        <div class="badges-row" id="badgesRow">
-          <div class="badge-item" title="Early Bird — Study before 8am">🌅</div>
-          <div class="badge-item locked" title="Night Owl — Study past midnight">🦉</div>
-          <div class="badge-item locked" title="Perfect Week — Study every day">🔥</div>
-          <div class="badge-item locked" title="Card Master — Create 50 flashcards">🃏</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ── PAGE: THEMES ────────────────────────────────────────── -->
-  <section class="page" id="page-themes">
-    <div class="page-header">
-      <h1 class="page-title">Themes</h1>
-      <p class="page-sub">Personalize your study environment</p>
-    </div>
-    <div class="themes-grid">
-      <div class="theme-card active" data-theme="dark" onclick="applyTheme('dark', this)">
-        <div class="theme-preview tp-dark">
-          <div class="tp-sidebar"></div>
-          <div class="tp-main"></div>
-        </div>
-        <div class="theme-info">
-          <span class="theme-name">Dark Study</span>
-          <span class="theme-check">✓</span>
-        </div>
-      </div>
-      <div class="theme-card" data-theme="anime" onclick="applyTheme('anime', this)">
-        <div class="theme-preview tp-anime">
-          <div class="tp-sidebar"></div>
-          <div class="tp-main"></div>
-        </div>
-        <div class="theme-info">
-          <span class="theme-name">Anime Study</span>
-        </div>
-      </div>
-      <div class="theme-card" data-theme="library" onclick="applyTheme('library', this)">
-        <div class="theme-preview tp-library">
-          <div class="tp-sidebar"></div>
-          <div class="tp-main"></div>
-        </div>
-        <div class="theme-info">
-          <span class="theme-name">Library</span>
-        </div>
-      </div>
-      <div class="theme-card" data-theme="cyberpunk" onclick="applyTheme('cyberpunk', this)">
-        <div class="theme-preview tp-cyberpunk">
-          <div class="tp-sidebar"></div>
-          <div class="tp-main"></div>
-        </div>
-        <div class="theme-info">
-          <span class="theme-name">Cyberpunk</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-</main>
-
-<!-- ── Toast notifications ──────────────────────────────────── -->
-<div class="toast-container" id="toastContainer"></div>
-
-<script src="app.js"></script>
+  // Particles
+  const container = document.getElementById('particles');
+  for (let i = 0; i < 20; i++) {
+    const p = document.createElement('div');
+    p.className = 'p';
+    const size = Math.random() * 3 + 1;
+    p.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;bottom:${Math.random()*50}%;animation-duration:${Math.random()*6+4}s;animation-delay:${Math.random()*5}s;`;
+    container.appendChild(p);
+  }
+</script>
 </body>
 </html>

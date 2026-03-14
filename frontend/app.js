@@ -919,6 +919,7 @@ function clearChat() {
 
 // ─── PROFILE ──────────────────────────────────────────
 async function loadProfile() {
+  document.getElementById('logoutBtn').style.display = 'block';
   try {
     profile = await apiFetch('/profile');
     $('profileName').value = profile.name || '';
@@ -1036,15 +1037,13 @@ function isOverdue(dateStr) {
 let currentUser = null;
 
 async function checkAuth() {
+  // Nếu đang ở trang login thì không check
+  if (window.location.pathname.includes('login')) return false;
   try {
     const res = await fetch(API.replace('/api','') + '/api/auth/me', {
       credentials: 'include',
-      signal: AbortSignal.timeout(5000) // timeout 5 giây
+      signal: AbortSignal.timeout(8000)
     });
-    if (!res.ok) {
-      window.location.href = '/login.html';
-      return false;
-    }
     const data = await res.json();
     if (!data.authenticated) {
       window.location.href = '/login.html';
@@ -1052,10 +1051,9 @@ async function checkAuth() {
     }
     currentUser = data.user;
     return true;
-  } catch (err) {
-    // Nếu backend lỗi, không redirect liên tục
-    console.warn('Auth check failed:', err.message);
-    window.location.href = '/login.html';
+  } catch {
+    // Backend đang ngủ (Render free tier) - hiện thông báo thay vì redirect loop
+    toast('⏳ lỗi vui lòng thử lại', 'error');
     return false;
   }
 }
