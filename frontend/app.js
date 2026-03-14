@@ -1036,37 +1036,69 @@ function isOverdue(dateStr) {
 // ─── Auth ─────────────────────────────────────────────
 let currentUser = null;
 
+function getToken() {
+  return localStorage.getItem('sf_token');
+}
+
 async function checkAuth() {
   if (window.location.pathname.includes('login')) return false;
+  const token = getToken();
+  if (!token) {
+    window.location.href = '/login.html';
+    return false;
+  }
   try {
-    const res = await fetch(API.replace('/api', '') + '/api/auth/me', {
-      credentials: 'include',
-      signal: AbortSignal.timeout(10000)
+    const res = await fetch(API + '/auth/me', {
+      headers: { 'Authorization': 'Bearer ' + token }
     });
-    if (!res.ok) {
-      window.location.href = '/login.html';
-      return false;
-    }
     const data = await res.json();
     if (!data.authenticated) {
+      localStorage.removeItem('sf_token');
+      localStorage.removeItem('sf_user');
       window.location.href = '/login.html';
       return false;
     }
     currentUser = data.user;
     return true;
-  } catch (err) {
-    console.warn('Auth check failed:', err.message);
-    // Backend đang wake up - không redirect ngay, đợi rồi thử lại
-    await new Promise(r => setTimeout(r, 3000));
-    try {
-      const res2 = await fetch(API.replace('/api', '') + '/api/auth/me', {
-        credentials: 'include'
-      });
-      const data2 = await res2.json();
-      if (data2.authenticated) { currentUser = data2.user; return true; }
-    } catch {}
+  } catch {
+    const cached = localStorage.getItem('sf_user');
+    if (cached) { currentUser = JSON.parse(cached); return true; }
     window.location.href = '/login.html';
     return false;
+  }
+}
+
+async function logout() {
+  localStorage.removeItem('sf_token');
+  localStorage.removeItem('sf_user');
+  window.location.href = '/login.html';
+}
+
+async function apiFetch(path, options = {}) {
+  const token = getToken();
+  try {
+    const res = await fetch(`${API}${path}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? 'Bearer ' + token : '',
+        ...options.headers
+      },
+      ...options,
+    });
+    if (res.status === 401) {
+      localStorage.removeItem('sf_token');
+      localStorage.removeItem('sf_user');
+      window.location.href = '/login.html';
+      return;
+    }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  } catch (err) {
+    console.error(`API error [${path}]:`, err.message);
+    throw err;
   }
 }
 
