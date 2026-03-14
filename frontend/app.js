@@ -8,7 +8,7 @@
 // ─── Config ──────────────────────────────────────────
 const API = window.location.hostname === 'localhost'
   ? 'http://localhost:3001/api'
-  : 'https://YOUR-RENDER-APP.onrender.com/api'; // ← Replace with your Render URL
+  : 'https://study-dashboard-api-b17y.onrender.com/api'; // ← Replace with your Render URL
 
 // ─── State ───────────────────────────────────────────
 let tasks = [];
