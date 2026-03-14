@@ -207,14 +207,13 @@ async function doLogin() {
     const res = await fetch(BACKEND + '/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({ email, password })
     });
     const data = await res.json();
     if (!res.ok) { showError('loginError', data.error); btn.disabled = false; btn.textContent = 'Đăng nhập'; return; }
-    // Đợi cookie được set xong rồi mới redirect
-await new Promise(r => setTimeout(r, 500));
-window.location.href = '/'; 
+    localStorage.setItem('sf_token', data.token);
+    localStorage.setItem('sf_user', JSON.stringify(data.user));
+    window.location.href = '/';
   } catch {
     showError('loginError', 'Không thể kết nối server. Vui lòng thử lại.');
     btn.disabled = false; btn.textContent = 'Đăng nhập';
@@ -240,11 +239,12 @@ async function doRegister() {
     const res = await fetch(BACKEND + '/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({ name, email, password })
     });
     const data = await res.json();
     if (!res.ok) { showError('registerError', data.error); btn.disabled = false; btn.textContent = 'Tạo tài khoản'; return; }
+    localStorage.setItem('sf_token', data.token);
+    localStorage.setItem('sf_user', JSON.stringify(data.user));
     window.location.href = '/';
   } catch {
     showError('registerError', 'Không thể kết nối server. Vui lòng thử lại.');

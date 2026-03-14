@@ -3,9 +3,9 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const session = require('express-session');
-const pgSession = require('connect-pg-simple')(session);
-const pool = require('./db');
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'studyflow-jwt-secret-2024';
 
 const tasksRouter      = require('./routes/tasks');
 const flashcardsRouter = require('./routes/flashcards');
@@ -22,22 +22,18 @@ const PORT = process.env.PORT || 3001;
 // ─── CORS ─────────────────────────────────────────────
 app.use(cors({
   origin: function(origin, callback) {
-    // Cho phép nếu không có origin (Postman, server-to-server)
     if (!origin) return callback(null, true);
-    
     const allowed = [
       'https://personalization-study.vercel.app',
       'http://localhost:3000',
       'http://localhost:5500',
       'http://127.0.0.1:5500',
     ];
-    
-    const ok = allowed.some(function(o) {
-      return origin === o || origin.startsWith(o);
-    });
-    
-    if (ok) callback(null, true);
-    else callback(new Error('Not allowed by CORS'));
+    if (allowed.some(function(o) { return origin.startsWith(o); })) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
   },
   credentials: true,
 }));
@@ -46,28 +42,19 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ─── Session ──────────────────────────────────────────
-app.use(session({
-  store: new pgSession({ pool: pool, tableName: 'user_sessions' }),
-  secret: process.env.SESSION_SECRET || 'studyflow-secret-2024',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-  secure: true,
-  httpOnly: true,
-  maxAge: 30 * 24 * 60 * 60 * 1000,
-  sameSite: 'none',
-}
-}));
-
-// ─── Auth middleware ───────────────────────────────────
+// ─── JWT Auth Middleware ───────────────────────────────
 function requireAuth(req, res, next) {
-  if (!req.session.userId) {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Chưa đăng nhập', code: 'UNAUTHORIZED' });
   }
-  // Gắn user id vào req để các route dùng
-  req.user = { id: req.session.userId };
-  next();
+  try {
+    const decoded = jwt.verify(auth.slice(7), JWT_SECRET);
+    req.user = { id: decoded.id };
+    next();
+  } catch {
+    res.status(401).json({ error: 'Token không hợp lệ', code: 'UNAUTHORIZED' });
+  }
 }
 
 // ─── Health ───────────────────────────────────────────
@@ -85,13 +72,8 @@ app.use('/api/sessions',   requireAuth, sessionsRouter);
 app.use('/api/ai',         requireAuth, aiRouter);
 app.use('/api/chats',      requireAuth, chatsRouter);
 
-app.use(function(req, res) {
-  res.status(404).json({ error: 'Route not found' });
-});
-app.use(function(err, req, res, next) {
-  console.error(err.stack);
-  res.status(500).json({ error: err.message });
-});
+app.use(function(req, res) { res.status(404).json({ error: 'Route not found' }); });
+app.use(function(err, req, res, next) { res.status(500).json({ error: err.message }); });
 
 app.listen(PORT, function() {
   console.log('🚀 Study Dashboard API running on port ' + PORT);
