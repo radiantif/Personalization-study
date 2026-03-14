@@ -1,16 +1,16 @@
 -- =====================================================
--- Study Dashboard — Full Schema (with Auth)
--- Run toàn bộ file này trong Neon SQL Editor
+-- Study Dashboard — Full Schema
+-- Chạy toàn bộ file này trong Neon SQL Editor
 -- =====================================================
 
--- ─── Users (updated for Google OAuth) ────────────────
+-- ─── Users ────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS users (
   id                SERIAL PRIMARY KEY,
-  google_id         VARCHAR(100) UNIQUE,
-  email             VARCHAR(200) UNIQUE,
+  email             VARCHAR(200) UNIQUE NOT NULL,
   name              VARCHAR(100) NOT NULL DEFAULT 'Student',
+  password_hash     VARCHAR(200),
+  password_salt     VARCHAR(100),
   avatar            VARCHAR(10) DEFAULT '🎓',
-  google_avatar     TEXT,
   custom_avatar     TEXT,
   level             INT NOT NULL DEFAULT 1,
   exp               INT NOT NULL DEFAULT 0,
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at        TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── Sessions table (for express-session) ────────────
+-- ─── Sessions ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS user_sessions (
   sid    VARCHAR NOT NULL COLLATE "default",
   sess   JSON NOT NULL,
@@ -54,7 +54,6 @@ CREATE TABLE IF NOT EXISTS subjects (
   icon       VARCHAR(10) DEFAULT '📁',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_subjects_user ON subjects(user_id);
 
 -- ─── Flashcards ───────────────────────────────────────
 CREATE TABLE IF NOT EXISTS flashcards (
@@ -81,7 +80,6 @@ CREATE TABLE IF NOT EXISTS materials (
   created_at    TIMESTAMPTZ DEFAULT NOW(),
   updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_materials_user ON materials(user_id);
 
 -- ─── Study Sessions ───────────────────────────────────
 CREATE TABLE IF NOT EXISTS study_sessions (

@@ -7,207 +7,265 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Kaisei+Decol:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'DM Sans', sans-serif;
-    background: #0a0b14;
-    color: #e8eaf6;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-  }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: #0a0b14;
+  color: #e8eaf6;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.bg {
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 70% 40%, rgba(124,111,255,0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 40% at 20% 70%, rgba(255,111,176,0.08) 0%, transparent 60%);
+}
+.particles { position: fixed; inset: 0; pointer-events: none; }
+.p { position: absolute; border-radius: 50%; background: #7c6fff; animation: fp linear infinite; opacity: 0; }
+@keyframes fp {
+  0% { opacity:0; transform:translateY(0) scale(0); }
+  10% { opacity:0.5; } 90% { opacity:0.2; }
+  100% { opacity:0; transform:translateY(-100px) scale(1); }
+}
+.card {
+  position: relative; z-index: 10;
+  width: 100%; max-width: 420px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 24px;
+  padding: 2.5rem;
+  backdrop-filter: blur(20px);
+  text-align: center;
+  animation: slideUp 0.6s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes slideUp {
+  from { opacity:0; transform:translateY(30px) scale(0.95); }
+  to { opacity:1; transform:translateY(0) scale(1); }
+}
+.logo { font-size: 2.2rem; animation: spin 8s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.brand { font-family: 'Kaisei Decol', serif; font-size: 1.7rem; margin: 0.4rem 0; }
+.tagline { font-size: 0.82rem; color: rgba(232,234,246,0.45); margin-bottom: 1.8rem; }
 
-  .bg {
-    position: fixed; inset: 0;
-    background:
-      radial-gradient(ellipse 60% 50% at 70% 40%, rgba(124,111,255,0.12) 0%, transparent 70%),
-      radial-gradient(ellipse 40% 40% at 20% 70%, rgba(255,111,176,0.08) 0%, transparent 60%);
-  }
+/* Tabs */
+.tabs { display: flex; background: rgba(255,255,255,0.04); border-radius: 12px; padding: 4px; margin-bottom: 1.5rem; }
+.tab {
+  flex: 1; padding: 0.55rem; border-radius: 9px;
+  font-size: 0.85rem; font-weight: 600; cursor: pointer;
+  color: rgba(232,234,246,0.5); transition: all 0.2s;
+  font-family: 'DM Sans', sans-serif; border: none; background: none;
+}
+.tab.active { background: linear-gradient(135deg, #7c6fff, #ff6fb0); color: white; }
 
-  .particles { position: fixed; inset: 0; pointer-events: none; }
-  .p { position: absolute; border-radius: 50%; background: #7c6fff; animation: fp linear infinite; opacity: 0; }
-  @keyframes fp {
-    0% { opacity:0; transform:translateY(0) scale(0); }
-    10% { opacity:0.5; }
-    90% { opacity:0.2; }
-    100% { opacity:0; transform:translateY(-100px) scale(1); }
-  }
+/* Forms */
+.form { display: none; flex-direction: column; gap: 0.8rem; }
+.form.active { display: flex; }
+.input-wrap { position: relative; }
+.input-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 1rem; pointer-events: none; }
+.field {
+  width: 100%; padding: 0.75rem 0.9rem 0.75rem 2.5rem;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px; color: #e8eaf6;
+  font-size: 0.88rem; font-family: 'DM Sans', sans-serif;
+  outline: none; transition: all 0.2s;
+}
+.field:focus { border-color: #7c6fff; background: rgba(255,255,255,0.08); box-shadow: 0 0 0 3px rgba(124,111,255,0.15); }
+.field::placeholder { color: rgba(232,234,246,0.35); }
 
-  .login-card {
-    position: relative;
-    z-index: 10;
-    width: 100%;
-    max-width: 400px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 24px;
-    padding: 2.5rem;
-    backdrop-filter: blur(20px);
-    text-align: center;
-    animation: slideUp 0.6s cubic-bezier(0.34,1.56,0.64,1);
-  }
+.submit-btn {
+  width: 100%; padding: 0.85rem;
+  background: linear-gradient(135deg, #7c6fff, #ff6fb0);
+  border: none; border-radius: 12px;
+  color: white; font-size: 0.95rem; font-weight: 700;
+  font-family: 'DM Sans', sans-serif; cursor: pointer;
+  transition: all 0.2s; margin-top: 0.3rem;
+  box-shadow: 0 4px 20px rgba(124,111,255,0.3);
+}
+.submit-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(124,111,255,0.4); }
+.submit-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
-  @keyframes slideUp {
-    from { opacity:0; transform:translateY(30px) scale(0.95); }
-    to { opacity:1; transform:translateY(0) scale(1); }
-  }
+.error-msg {
+  padding: 0.65rem 0.9rem;
+  background: rgba(255,100,100,0.1);
+  border: 1px solid rgba(255,100,100,0.25);
+  border-radius: 10px; font-size: 0.8rem; color: #ff8888;
+  display: none; text-align: left;
+}
+.success-msg {
+  padding: 0.65rem 0.9rem;
+  background: rgba(74,240,212,0.08);
+  border: 1px solid rgba(74,240,212,0.2);
+  border-radius: 10px; font-size: 0.8rem; color: #4af0d4;
+  display: none; text-align: left;
+}
 
-  .logo { font-size: 2.5rem; margin-bottom: 0.5rem; animation: spin 8s linear infinite; display: inline-block; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+.divider { margin: 0.5rem 0; font-size: 0.72rem; color: rgba(232,234,246,0.3); }
 
-  .brand {
-    font-family: 'Kaisei Decol', serif;
-    font-size: 1.8rem;
-    color: #e8eaf6;
-    margin-bottom: 0.4rem;
-  }
-
-  .tagline {
-    font-size: 0.85rem;
-    color: rgba(232,234,246,0.5);
-    margin-bottom: 2rem;
-    line-height: 1.5;
-  }
-
-  .divider {
-    display: flex;
-    align-items: center;
-    gap: 0.8rem;
-    margin-bottom: 1.5rem;
-    color: rgba(232,234,246,0.3);
-    font-size: 0.75rem;
-  }
-  .divider::before, .divider::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: rgba(255,255,255,0.08);
-  }
-
-  .google-btn {
-    width: 100%;
-    padding: 0.9rem 1.5rem;
-    background: white;
-    color: #1a1a2e;
-    border: none;
-    border-radius: 14px;
-    font-size: 0.95rem;
-    font-weight: 600;
-    font-family: 'DM Sans', sans-serif;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.8rem;
-    transition: all 0.2s ease;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    text-decoration: none;
-  }
-
-  .google-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.4);
-  }
-
-  .google-icon {
-    width: 22px; height: 22px;
-  }
-
-  .features {
-    margin-top: 2rem;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.6rem;
-  }
-
-  .feat {
-    padding: 0.6rem;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 10px;
-    font-size: 0.75rem;
-    color: rgba(232,234,246,0.6);
-  }
-
-  .feat-icon { font-size: 1rem; margin-bottom: 3px; }
-
-  .error-msg {
-    margin-bottom: 1rem;
-    padding: 0.7rem;
-    background: rgba(255,100,100,0.1);
-    border: 1px solid rgba(255,100,100,0.2);
-    border-radius: 10px;
-    font-size: 0.8rem;
-    color: #ff8080;
-    display: none;
-  }
-
-  .footer-note {
-    margin-top: 1.5rem;
-    font-size: 0.7rem;
-    color: rgba(232,234,246,0.3);
-  }
+.features {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 0.5rem; margin-top: 1.5rem;
+}
+.feat {
+  padding: 0.55rem; background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px; font-size: 0.72rem;
+  color: rgba(232,234,246,0.55);
+}
+.feat-icon { font-size: 1rem; display: block; margin-bottom: 2px; }
 </style>
 </head>
 <body>
 <div class="bg"></div>
 <div class="particles" id="particles"></div>
 
-<div class="login-card">
+<div class="card">
   <div class="logo">✦</div>
   <div class="brand">StudyFlow</div>
-  <p class="tagline">Trợ lý học tập thông minh của bạn.<br/>Đăng nhập để bắt đầu hành trình!</p>
+  <p class="tagline">Trợ lý học tập thông minh của bạn</p>
 
-  <div class="error-msg" id="errorMsg">Đăng nhập thất bại. Vui lòng thử lại.</div>
-
-  <div class="divider">Đăng nhập với</div>
-
-  <a class="google-btn" id="googleBtn" href="#">
-    <svg class="google-icon" viewBox="0 0 24 24">
-      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-    </svg>
-    Tiếp tục với Google
-  </a>
-
-  <div class="features">
-    <div class="feat"><div class="feat-icon">✅</div>Quản lý Tasks</div>
-    <div class="feat"><div class="feat-icon">🃏</div>Flashcards</div>
-    <div class="feat"><div class="feat-icon">🤖</div>AI Gia sư</div>
-    <div class="feat"><div class="feat-icon">📊</div>Thống kê</div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('login')">Đăng nhập</button>
+    <button class="tab" onclick="switchTab('register')">Đăng ký</button>
   </div>
 
-  <p class="footer-note">Bằng cách đăng nhập, bạn đồng ý với điều khoản sử dụng của StudyFlow.</p>
+  <!-- Login Form -->
+  <div class="form active" id="loginForm">
+    <div class="error-msg" id="loginError"></div>
+    <div class="input-wrap">
+      <span class="input-icon">📧</span>
+      <input class="field" type="email" id="loginEmail" placeholder="Email của bạn" autocomplete="email"/>
+    </div>
+    <div class="input-wrap">
+      <span class="input-icon">🔒</span>
+      <input class="field" type="password" id="loginPassword" placeholder="Mật khẩu" autocomplete="current-password"/>
+    </div>
+    <button class="submit-btn" id="loginBtn" onclick="doLogin()">Đăng nhập</button>
+  </div>
+
+  <!-- Register Form -->
+  <div class="form" id="registerForm">
+    <div class="error-msg" id="registerError"></div>
+    <div class="success-msg" id="registerSuccess"></div>
+    <div class="input-wrap">
+      <span class="input-icon">👤</span>
+      <input class="field" type="text" id="regName" placeholder="Họ và tên" autocomplete="name"/>
+    </div>
+    <div class="input-wrap">
+      <span class="input-icon">📧</span>
+      <input class="field" type="email" id="regEmail" placeholder="Email của bạn" autocomplete="email"/>
+    </div>
+    <div class="input-wrap">
+      <span class="input-icon">🔒</span>
+      <input class="field" type="password" id="regPassword" placeholder="Mật khẩu (ít nhất 6 ký tự)" autocomplete="new-password"/>
+    </div>
+    <div class="input-wrap">
+      <span class="input-icon">🔒</span>
+      <input class="field" type="password" id="regConfirm" placeholder="Xác nhận mật khẩu" autocomplete="new-password"/>
+    </div>
+    <button class="submit-btn" id="registerBtn" onclick="doRegister()">Tạo tài khoản</button>
+  </div>
+
+  <div class="features">
+    <div class="feat"><span class="feat-icon">✅</span>Quản lý Tasks</div>
+    <div class="feat"><span class="feat-icon">🃏</span>Flashcards</div>
+    <div class="feat"><span class="feat-icon">🤖</span>AI Gia sư</div>
+    <div class="feat"><span class="feat-icon">📊</span>Thống kê</div>
+  </div>
 </div>
 
 <script>
-  const BACKEND = 'https://study-dashboard-api-b17y.onrender.com';
+const BACKEND = 'https://study-dashboard-api-b17y.onrender.com';
 
-  // Chỉ check auth nếu có param login=success
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('login') === 'success') {
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', (i === 0) === (tab === 'login')));
+  document.getElementById('loginForm').classList.toggle('active', tab === 'login');
+  document.getElementById('registerForm').classList.toggle('active', tab === 'register');
+}
+
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = '⚠️ ' + msg;
+  el.style.display = 'block';
+}
+function hideError(id) { document.getElementById(id).style.display = 'none'; }
+
+async function doLogin() {
+  hideError('loginError');
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  if (!email || !password) return showError('loginError', 'Vui lòng điền đầy đủ thông tin');
+
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = 'Đang đăng nhập...';
+
+  try {
+    const res = await fetch(BACKEND + '/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (!res.ok) { showError('loginError', data.error); btn.disabled = false; btn.textContent = 'Đăng nhập'; return; }
     window.location.href = '/';
+  } catch {
+    showError('loginError', 'Không thể kết nối server. Vui lòng thử lại.');
+    btn.disabled = false; btn.textContent = 'Đăng nhập';
   }
-  if (params.get('error')) {
-    document.getElementById('errorMsg').style.display = 'block';
-  }
+}
 
-  // Google login button
-  document.getElementById('googleBtn').href = BACKEND + '/api/auth/google';
+async function doRegister() {
+  hideError('registerError');
+  document.getElementById('registerSuccess').style.display = 'none';
+  const name = document.getElementById('regName').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const password = document.getElementById('regPassword').value;
+  const confirm = document.getElementById('regConfirm').value;
 
-  // Particles
-  const container = document.getElementById('particles');
-  for (let i = 0; i < 20; i++) {
-    const p = document.createElement('div');
-    p.className = 'p';
-    const size = Math.random() * 3 + 1;
-    p.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;bottom:${Math.random()*50}%;animation-duration:${Math.random()*6+4}s;animation-delay:${Math.random()*5}s;`;
-    container.appendChild(p);
+  if (!name || !email || !password) return showError('registerError', 'Vui lòng điền đầy đủ thông tin');
+  if (password.length < 6) return showError('registerError', 'Mật khẩu phải có ít nhất 6 ký tự');
+  if (password !== confirm) return showError('registerError', 'Mật khẩu xác nhận không khớp');
+
+  const btn = document.getElementById('registerBtn');
+  btn.disabled = true; btn.textContent = 'Đang tạo tài khoản...';
+
+  try {
+    const res = await fetch(BACKEND + '/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ name, email, password })
+    });
+    const data = await res.json();
+    if (!res.ok) { showError('registerError', data.error); btn.disabled = false; btn.textContent = 'Tạo tài khoản'; return; }
+    window.location.href = '/';
+  } catch {
+    showError('registerError', 'Không thể kết nối server. Vui lòng thử lại.');
+    btn.disabled = false; btn.textContent = 'Tạo tài khoản';
   }
+}
+
+// Enter key support
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Enter') return;
+  if (document.getElementById('loginForm').classList.contains('active')) doLogin();
+  else doRegister();
+});
+
+// Particles
+const container = document.getElementById('particles');
+for (let i = 0; i < 20; i++) {
+  const p = document.createElement('div');
+  p.className = 'p';
+  const size = Math.random() * 3 + 1;
+  p.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;bottom:${Math.random()*60}%;animation-duration:${Math.random()*6+4}s;animation-delay:${Math.random()*5}s;`;
+  container.appendChild(p);
+}
 </script>
 </body>
 </html>
