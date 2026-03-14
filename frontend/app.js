@@ -49,22 +49,7 @@ const toast = (msg, type = 'success') => {
   setTimeout(() => t.remove(), 3200);
 };
 
-async function apiFetch(path, options = {}) {
-  try {
-    const res = await fetch(`${API}${path}`, {
-      headers: { 'Content-Type': 'application/json', ...options.headers },
-      ...options,
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || `HTTP ${res.status}`);
-    }
-    return await res.json();
-  } catch (err) {
-    console.error(`API error [${path}]:`, err.message);
-    throw err;
-  }
-}
+
 
 // ─── Navigation ───────────────────────────────────────
 function navigate(page) {
@@ -1102,37 +1087,7 @@ async function apiFetch(path, options = {}) {
   }
 }
 
-async function logout() {
-  try {
-    await fetch(API.replace('/api','') + '/api/auth/logout', { method: 'POST', credentials: 'include' });
-  } catch {}
-  window.location.href = '/login.html';
-}
 
-// Override apiFetch to include credentials
-const _origFetch = apiFetch;
-async function apiFetch(path, options = {}) {
-  try {
-    const res = await fetch(`${API}${path}`, {
-      headers: { 'Content-Type': 'application/json', ...options.headers },
-      credentials: 'include',
-      ...options,
-    });
-    if (res.status === 401) {
-      window.location.href = '/login.html';
-      return;
-    }
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || `HTTP ${res.status}`);
-    }
-    return await res.json();
-  } catch (err) {
-    if (err.message && err.message.includes('login')) window.location.href = '/login.html';
-    console.error(`API error [${path}]:`, err.message);
-    throw err;
-  }
-}
 
 // ─── Avatar Upload ────────────────────────────────────
 function openAvatarUpload() {
@@ -1146,8 +1101,8 @@ function openAvatarUpload() {
     try {
       const res = await fetch(`${API}/profile/avatar`, {
         method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + getToken() },
         body: formData,
-        credentials: 'include',
       });
       const data = await res.json();
       if (data.url) {
