@@ -7,6 +7,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Kaisei+Decol:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#7c6fff" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="StudyFlow" />
 <link rel="stylesheet" href="style.css" />
 <link rel="manifest" href="/manifest.json" />
 <meta name="theme-color" content="#7c6fff" />
@@ -66,15 +71,11 @@
     <a class="nav-item" data-page="themes">
       <span class="nav-icon">🎨</span><span class="nav-label">Themes</span>
     </a>
-    <div class="nav-divider"></div>
-    <a class="nav-item" onclick="openPomodoro()">
-      <span class="nav-icon">⏱️</span><span class="nav-label">Pomodoro</span>
-    </a>
-    <a class="nav-item" onclick="openCalendar()">
+    <a class="nav-item" data-page="calendar">
       <span class="nav-icon">📅</span><span class="nav-label">Lịch học</span>
     </a>
-    <a class="nav-item" onclick="openAITools()">
-      <span class="nav-icon">🛠️</span><span class="nav-label">AI Tools</span>
+    <a class="nav-item" data-page="quiz">
+      <span class="nav-icon">🧠</span><span class="nav-label">Quiz AI</span>
     </a>
   </nav>
 
@@ -224,10 +225,24 @@
           <button class="mtab active" data-tab="note" onclick="setMaterialTab('note')">📝 Note</button>
           <button class="mtab" data-tab="file" onclick="setMaterialTab('file')">📄 Upload File</button>
         </div>
-        <div id="noteTab">
-          <input type="text" id="matTitle" class="input-field" placeholder="Title" />
+        <div id="noteTab" style="display:flex;flex-direction:column;gap:0.9rem">
+          <input type="text" id="matTitle" class="input-field" placeholder="Tiêu đề ghi chú" />
           <select id="matSubject" class="input-field"></select>
-          <textarea id="matContent" class="input-field textarea" placeholder="Write your notes here..."></textarea>
+          <div class="rich-toolbar">
+            <button class="rich-btn" onclick="formatText('bold')" title="Đậm"><b>B</b></button>
+            <button class="rich-btn" onclick="formatText('italic')" title="Nghiêng"><i>I</i></button>
+            <button class="rich-btn" onclick="formatText('underline')" title="Gạch chân"><u>U</u></button>
+            <div class="rich-separator"></div>
+            <button class="rich-btn" onclick="formatText('insertUnorderedList')" title="Danh sách">• List</button>
+            <button class="rich-btn" onclick="formatText('insertOrderedList')" title="Số thứ tự">1. List</button>
+            <div class="rich-separator"></div>
+            <button class="rich-btn" onclick="formatText('formatBlock','h3')" title="Tiêu đề">H3</button>
+            <button class="rich-btn" onclick="formatText('formatBlock','p')" title="Đoạn văn">¶</button>
+            <div class="rich-separator"></div>
+            <button class="rich-btn" onclick="insertTable()" title="Bảng">⊞ Table</button>
+          </div>
+          <div id="richEditor" contenteditable="true" spellcheck="false" placeholder="Viết ghi chú của bạn ở đây..."></div>
+          <textarea id="matContent" style="display:none"></textarea>
         </div>
         <div id="fileTab" style="display:none">
           <input type="text" id="matFileTitle" class="input-field" placeholder="Title (optional)" />
@@ -241,7 +256,7 @@
         </div>
         <div class="modal-footer">
           <button class="btn btn-ghost" onclick="closeModal('addMaterialModal')">Cancel</button>
-          <button class="btn btn-primary" onclick="addMaterial()">Save</button>
+          <button class="btn btn-primary" onclick="materialTab==='note'?addMaterialRich():addMaterial()">Lưu</button>
         </div>
       </div>
     </div>
@@ -617,6 +632,139 @@
       </div>
     </div>
   </section>
+
+  <!-- ── PAGE: CALENDAR ─────────────────────────────────── -->
+  <section class="page" id="page-calendar">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Lịch học</h1>
+        <p class="page-sub">Lên kế hoạch và theo dõi lịch ôn tập</p>
+      </div>
+      <button class="btn btn-primary" onclick="openAddEventModal('')">+ Thêm sự kiện</button>
+    </div>
+    <div class="calendar-layout">
+      <div class="calendar-main card">
+        <div class="cal-nav">
+          <button class="btn btn-ghost" onclick="prevMonth()">‹</button>
+          <span class="cal-month-label" id="calMonthLabel"></span>
+          <button class="btn btn-ghost" onclick="nextMonth()">›</button>
+        </div>
+        <div class="cal-grid" id="calendarGrid"></div>
+      </div>
+      <div class="calendar-sidebar">
+        <div class="card" style="padding:1.2rem">
+          <h3 style="font-size:0.85rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:1rem">📌 Sắp tới</h3>
+          <div id="upcomingList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Event Modal -->
+    <div class="modal" id="addEventModal">
+      <div class="modal-content card">
+        <div class="modal-header">
+          <h2>Thêm sự kiện</h2>
+          <button class="modal-close" onclick="closeModal('addEventModal')">✕</button>
+        </div>
+        <input type="text" id="eventTitle" class="input-field" placeholder="Tiêu đề sự kiện" />
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem">
+          <input type="date" id="eventDate" class="input-field" />
+          <input type="time" id="eventTime" class="input-field" />
+        </div>
+        <input type="text" id="eventSubject" class="input-field" placeholder="Môn học (tuỳ chọn)" />
+        <textarea id="eventDesc" class="input-field textarea" placeholder="Ghi chú..." rows="2"></textarea>
+        <div style="display:flex;gap:1rem;align-items:center">
+          <select id="eventType" class="input-field">
+            <option value="study">📖 Học bài</option>
+            <option value="exam">📝 Kiểm tra</option>
+            <option value="review">🔄 Ôn tập</option>
+            <option value="deadline">⚡ Deadline</option>
+          </select>
+          <input type="color" id="eventColor" value="#7c6fff" class="color-input" title="Màu sự kiện" />
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeModal('addEventModal')">Huỷ</button>
+          <button class="btn btn-primary" onclick="addEvent()">Thêm</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PAGE: QUIZ ──────────────────────────────────────── -->
+  <section class="page" id="page-quiz">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Quiz AI</h1>
+        <p class="page-sub">Kiểm tra kiến thức với câu hỏi được tạo tự động</p>
+      </div>
+    </div>
+    <div class="quiz-create-bar" id="quizCreateBar">
+      <button class="btn btn-primary" onclick="openModal('createQuizModal')">✨ Tạo Quiz với AI</button>
+    </div>
+    <div id="quizList" style="padding:0 2rem 2rem"></div>
+    <div id="quizPlayArea" style="display:none;padding:0 2rem 2rem"></div>
+
+    <!-- Create Quiz Modal -->
+    <div class="modal" id="createQuizModal">
+      <div class="modal-content card">
+        <div class="modal-header">
+          <h2>Tạo Quiz với AI</h2>
+          <button class="modal-close" onclick="closeModal('createQuizModal')">✕</button>
+        </div>
+        <input type="text" id="quizTopic" class="input-field" placeholder="Chủ đề (vd: Định luật Newton, Thế chiến 2...)" />
+        <input type="text" id="quizSubject" class="input-field" placeholder="Môn học (tuỳ chọn)" />
+        <div style="display:flex;align-items:center;gap:1rem">
+          <label style="font-size:0.85rem;color:var(--text-muted)">Số câu:</label>
+          <select id="quizCount" class="input-field" style="width:auto">
+            <option value="5">5 câu</option>
+            <option value="10">10 câu</option>
+            <option value="15">15 câu</option>
+            <option value="20">20 câu</option>
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeModal('createQuizModal')">Huỷ</button>
+          <button class="btn btn-primary" id="generateQuizBtn" onclick="generateQuiz()">✨ Tạo Quiz với AI</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AI Generate Flashcard Modal -->
+  <div class="modal" id="aiFlashModal">
+    <div class="modal-content card">
+      <div class="modal-header">
+        <h2>🤖 AI Tạo Flashcard</h2>
+        <button class="modal-close" onclick="closeModal('aiFlashModal')">✕</button>
+      </div>
+      <p style="font-size:0.8rem;color:var(--text-muted)">Dán văn bản, ghi chú hoặc nội dung bài học — AI sẽ tự tạo flashcard!</p>
+      <textarea id="aiFlashText" class="input-field textarea" placeholder="Dán nội dung bài học vào đây..." rows="6"></textarea>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem">
+        <input type="text" id="aiFlashSubject" class="input-field" placeholder="Môn học" />
+        <select id="aiFlashCount" class="input-field">
+          <option value="5">5 thẻ</option>
+          <option value="8" selected>8 thẻ</option>
+          <option value="12">12 thẻ</option>
+          <option value="15">15 thẻ</option>
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('aiFlashModal')">Huỷ</button>
+        <button class="btn btn-primary" id="genFlashBtn" onclick="generateFlashcardsFromText()">✨ Tạo Flashcard</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary Modal -->
+  <div class="modal" id="summaryModal">
+    <div class="modal-content card" style="max-width:560px">
+      <div class="modal-header">
+        <h2 id="summaryModalTitle">Tóm tắt tài liệu</h2>
+        <button class="modal-close" onclick="closeModal('summaryModal')">✕</button>
+      </div>
+      <div id="summaryContent"></div>
+    </div>
+  </div>
 
 </main>
 

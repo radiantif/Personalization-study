@@ -6,9 +6,9 @@
 'use strict';
 
 // ─── Config ──────────────────────────────────────────
-const API = window.location.hostname === 'localhost'
+const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
   ? 'http://localhost:3001/api'
-  : 'https://study-dashboard-api-b17y.onrender.com/api'; // ← Replace with your Render URL
+  : 'https://study-dashboard-api-b17y.onrender.com/api';
 
 // ─── State ───────────────────────────────────────────
 let tasks = [];
@@ -1743,6 +1743,7 @@ async function deleteEvent(id) {
 }
 
 // ─── QUIZ ─────────────────────────────────────────────
+
 async function loadQuizList() {
   const list = $('quizList');
   if (!list) return;
