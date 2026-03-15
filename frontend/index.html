@@ -82,6 +82,18 @@
       <span class="nav-icon">🔍</span><span class="nav-label">Deep OCR</span>
       <span class="nav-new-badge">AI</span>
     </a>
+    <a class="nav-item" data-page="rooms">
+      <span class="nav-icon">👥</span><span class="nav-label">Phòng học</span>
+    </a>
+    <a class="nav-item" data-page="roadmap">
+      <span class="nav-icon">🗺️</span><span class="nav-label">Lộ trình</span>
+    </a>
+    <a class="nav-item" data-page="games">
+      <span class="nav-icon">🎮</span><span class="nav-label">Mini Games</span>
+    </a>
+    <a class="nav-item" data-page="scan">
+      <span class="nav-icon">📷</span><span class="nav-label">Scan & Lưu</span>
+    </a>
   </nav>
 
   <button class="pwa-install-btn" id="pwaInstallBtn" onclick="installPWA()" style="display:none">
@@ -921,6 +933,219 @@
     </div>
   </section>
 
+
+  <!-- ── PAGE: STUDY ROOMS ──────────────────────────────── -->
+  <section class="page" id="page-rooms">
+    <div class="page-header">
+      <div><h1 class="page-title">Phòng học nhóm</h1><p class="page-sub">Học cùng bạn bè, chia sẻ tiến độ</p></div>
+      <div style="display:flex;gap:0.6rem">
+        <button class="btn btn-ghost" onclick="openModal('joinRoomModal')">🔗 Nhập mã</button>
+        <button class="btn btn-primary" onclick="openModal('createRoomModal')">+ Tạo phòng</button>
+      </div>
+    </div>
+    <div id="roomsList" style="padding:1.5rem 2rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem"></div>
+
+    <!-- Room Detail (shown when inside a room) -->
+    <div id="roomDetail" style="display:none;height:calc(100vh - 120px)">
+      <div class="room-layout">
+        <div class="room-members-panel card">
+          <div class="room-panel-header">
+            <span id="roomDetailName">Phòng học</span>
+            <div style="display:flex;gap:0.4rem">
+              <button class="btn btn-ghost btn-sm" id="copyRoomCodeBtn" onclick="copyRoomCode()">📋 Mã</button>
+              <button class="btn btn-ghost btn-sm" onclick="leaveRoom()" style="color:#ff6464">Rời</button>
+            </div>
+          </div>
+          <div class="room-subject-selector">
+            <select id="myStudySubject" class="input-field" onchange="updateRoomStatus()" style="font-size:0.78rem">
+              <option value="">Chọn môn đang học...</option>
+              <option>Toán</option><option>Vật Lý</option><option>Hóa Học</option>
+              <option>Ngữ Văn</option><option>Sinh Học</option><option>Lịch Sử</option><option>Tiếng Anh</option>
+            </select>
+          </div>
+          <div id="roomMembersList" class="room-members-list"></div>
+        </div>
+        <div class="room-chat-panel card">
+          <div class="room-panel-header">💬 Chat nhóm</div>
+          <div id="roomChatMessages" class="room-chat-messages"></div>
+          <div class="room-chat-input">
+            <input type="text" id="roomMsgInput" class="input-field" placeholder="Nhắn gì đó..." onkeydown="if(event.key==='Enter')sendRoomMessage()" />
+            <button class="btn btn-primary btn-sm" onclick="sendRoomMessage()">↑</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal" id="createRoomModal">
+      <div class="modal-content card">
+        <div class="modal-header"><h2>Tạo phòng học</h2><button class="modal-close" onclick="closeModal('createRoomModal')">✕</button></div>
+        <input type="text" id="roomName" class="input-field" placeholder="Tên phòng (vd: Ôn thi Toán THPT)" />
+        <input type="text" id="roomSubject" class="input-field" placeholder="Môn học chính" />
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeModal('createRoomModal')">Huỷ</button>
+          <button class="btn btn-primary" onclick="createRoom()">Tạo phòng</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal" id="joinRoomModal">
+      <div class="modal-content card">
+        <div class="modal-header"><h2>Nhập mã phòng</h2><button class="modal-close" onclick="closeModal('joinRoomModal')">✕</button></div>
+        <input type="text" id="joinRoomCode" class="input-field" placeholder="Mã 6 ký tự (vd: A3F9B2)" style="text-transform:uppercase;letter-spacing:0.15em;font-size:1.2rem;text-align:center" maxlength="6" />
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeModal('joinRoomModal')">Huỷ</button>
+          <button class="btn btn-primary" onclick="joinRoom()">Vào phòng</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PAGE: ROADMAP ───────────────────────────────────── -->
+  <section class="page" id="page-roadmap">
+    <div class="page-header">
+      <div><h1 class="page-title">Lộ trình học</h1><p class="page-sub">AI tạo kế hoạch học tập cá nhân hoá</p></div>
+      <button class="btn btn-primary" onclick="openModal('createRoadmapModal')">✨ Tạo lộ trình</button>
+    </div>
+    <div id="roadmapList" style="padding:0 2rem 2rem"></div>
+    <div id="roadmapDetail" style="display:none;padding:0 2rem 2rem"></div>
+
+    <div class="modal" id="createRoadmapModal">
+      <div class="modal-content card">
+        <div class="modal-header"><h2>✨ Tạo lộ trình với AI</h2><button class="modal-close" onclick="closeModal('createRoadmapModal')">✕</button></div>
+        <input type="text" id="rmGoal" class="input-field" placeholder="Mục tiêu (vd: Đạt 8+ môn Toán THPT, IELTS 6.5...)" />
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem">
+          <input type="text" id="rmSubject" class="input-field" placeholder="Môn học" />
+          <select id="rmLevel" class="input-field">
+            <option value="THCS">THCS</option>
+            <option value="THPT" selected>THPT</option>
+            <option value="Đại học">Đại học</option>
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem">
+          <input type="text" id="rmCurrentLevel" class="input-field" placeholder="Trình độ hiện tại (vd: Trung bình)" />
+          <select id="rmWeeks" class="input-field">
+            <option value="4">4 tuần</option>
+            <option value="8" selected>8 tuần</option>
+            <option value="12">12 tuần</option>
+            <option value="16">16 tuần</option>
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeModal('createRoadmapModal')">Huỷ</button>
+          <button class="btn btn-primary" id="createRoadmapBtn" onclick="generateRoadmap()">✨ Tạo với AI</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PAGE: MINI GAMES ────────────────────────────────── -->
+  <section class="page" id="page-games">
+    <div class="page-header">
+      <div><h1 class="page-title">Mini Games</h1><p class="page-sub">Học mà chơi, chơi mà học</p></div>
+    </div>
+    <!-- Game selector -->
+    <div id="gameSelector" style="padding:1.5rem 2rem">
+      <div class="games-grid">
+        <div class="game-card card" onclick="startGame('flashspeed')">
+          <div class="gc-icon">⚡</div>
+          <div class="gc-name">Flash Speed</div>
+          <div class="gc-desc">Trả lời flashcard nhanh nhất có thể</div>
+          <div class="gc-badge">Flashcards</div>
+        </div>
+        <div class="game-card card" onclick="startGame('match')">
+          <div class="gc-icon">🎯</div>
+          <div class="gc-name">Ghép đôi</div>
+          <div class="gc-desc">Nối câu hỏi với câu trả lời đúng</div>
+          <div class="gc-badge">Flashcards</div>
+        </div>
+        <div class="game-card card" onclick="startGame('typing')">
+          <div class="gc-icon">⌨️</div>
+          <div class="gc-name">Gõ nhanh</div>
+          <div class="gc-desc">Gõ đáp án đúng trước khi hết giờ</div>
+          <div class="gc-badge">Flashcards</div>
+        </div>
+        <div class="game-card card" onclick="startGame('truefalse')">
+          <div class="gc-icon">✅</div>
+          <div class="gc-name">Đúng hay Sai</div>
+          <div class="gc-desc">Phán đoán câu trả lời đúng/sai</div>
+          <div class="gc-badge">Flashcards</div>
+        </div>
+      </div>
+    </div>
+    <!-- Game area -->
+    <div id="gameArea" style="display:none;padding:0 2rem 2rem"></div>
+  </section>
+
+  <!-- ── PAGE: SCAN & SAVE ───────────────────────────────── -->
+  <section class="page" id="page-scan">
+    <div class="page-header">
+      <div><h1 class="page-title">Scan & Lưu nhanh</h1><p class="page-sub">Chụp ảnh → OCR → lưu ghi chú hoặc flashcard trong 2 giây</p></div>
+    </div>
+    <div class="scan-layout">
+      <!-- Camera / Upload -->
+      <div class="scan-capture-card card">
+        <div class="scan-camera-area" id="scanCameraArea">
+          <video id="scanVideo" autoplay playsinline style="display:none;width:100%;border-radius:8px"></video>
+          <canvas id="scanCanvas" style="display:none"></canvas>
+          <div class="scan-placeholder" id="scanPlaceholder">
+            <div style="font-size:3rem">📷</div>
+            <div style="font-weight:700;margin-top:0.5rem">Chụp ảnh hoặc tải lên</div>
+          </div>
+          <img id="scanPreview" style="display:none;width:100%;border-radius:8px;max-height:300px;object-fit:contain" />
+        </div>
+        <div class="scan-actions">
+          <button class="btn btn-primary" onclick="startCamera()" id="startCamBtn">📷 Mở camera</button>
+          <button class="btn btn-ghost" id="captureBtn" style="display:none" onclick="capturePhoto()">⭕ Chụp</button>
+          <button class="btn btn-ghost" onclick="$('scanFileInput').click()">📁 Tải ảnh</button>
+          <input type="file" id="scanFileInput" accept="image/*" style="display:none" onchange="handleScanFile(this.files[0])" />
+        </div>
+        <button class="btn btn-primary" id="scanRunBtn" style="display:none;width:100%" onclick="runScanOCR()">
+          🔍 Quét & Trích xuất
+        </button>
+      </div>
+
+      <!-- Result & Save -->
+      <div class="scan-result-card card" id="scanResultCard" style="display:none">
+        <div class="scan-result-header">
+          <span>📄 Nội dung đã trích xuất</span>
+          <div id="scanLoadingIndicator" style="display:none">
+            <div class="ocr-spinner" style="width:20px;height:20px"></div>
+          </div>
+        </div>
+        <textarea id="scanExtractedText" class="input-field textarea" rows="6" placeholder="Nội dung sẽ hiện ở đây..."></textarea>
+        <div class="scan-save-options">
+          <div class="sso-title">💾 Lưu nhanh</div>
+          <div class="sso-grid">
+            <button class="sso-btn" onclick="scanSaveAsNote()">
+              <span>📝</span><span>Ghi chú</span>
+            </button>
+            <button class="sso-btn" onclick="openModal('scanFlashcardModal')">
+              <span>🃏</span><span>Flashcard</span>
+            </button>
+            <button class="sso-btn" onclick="scanSendToAI()">
+              <span>🤖</span><span>Hỏi AI</span>
+            </button>
+            <button class="sso-btn" onclick="copyScanText()">
+              <span>📋</span><span>Copy</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scan to Flashcard Modal -->
+    <div class="modal" id="scanFlashcardModal">
+      <div class="modal-content card">
+        <div class="modal-header"><h2>🃏 Tạo Flashcard từ ảnh</h2><button class="modal-close" onclick="closeModal('scanFlashcardModal')">✕</button></div>
+        <p style="font-size:0.8rem;color:var(--text-muted)">AI sẽ tự tạo flashcard từ nội dung đã scan</p>
+        <input type="text" id="scanFlashSubject" class="input-field" placeholder="Môn học" />
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeModal('scanFlashcardModal')">Huỷ</button>
+          <button class="btn btn-primary" onclick="scanCreateFlashcards()">✨ Tạo Flashcard</button>
+        </div>
+      </div>
+    </div>
+  </section>
 
 </main>
 

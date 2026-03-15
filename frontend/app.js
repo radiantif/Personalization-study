@@ -2717,3 +2717,659 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+// ═══════════════════════════════════════════════════════
+// STUDY ROOMS
+// ═══════════════════════════════════════════════════════
+let currentRoomId = null;
+let roomPollInterval = null;
+
+async function loadRooms() {
+  const list = $('roomsList');
+  if (!list) return;
+  list.innerHTML = '<div class="loading-state">Đang tải...</div>';
+  try {
+    const rooms = await apiFetch('/rooms');
+    if (!rooms.length) {
+      list.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="es-icon">👥</div><div class="es-text">Chưa có phòng học nào.<br/>Tạo phòng mới hoặc nhập mã để tham gia!</div></div>`;
+      return;
+    }
+    list.innerHTML = rooms.map(r => `
+      <div class="room-card card" onclick="enterRoom(${r.id})">
+        <div class="rc-header">
+          <div>
+            <div class="rc-name">${escHtml(r.name)}</div>
+            <div class="rc-subject">${escHtml(r.subject||'Chung')}</div>
+          </div>
+          <span style="font-size:1.5rem">👥</span>
+        </div>
+        <div class="rc-members">👤 ${r.member_count||0} thành viên</div>
+        <div class="rc-code">Mã: <strong>${r.invite_code}</strong></div>
+        <div class="rc-actions">
+          <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();enterRoom(${r.id})">Vào phòng</button>
+          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();navigator.clipboard?.writeText('${r.invite_code}');toast('Đã copy mã: ${r.invite_code}')">📋 Mã</button>
+        </div>
+      </div>`).join('');
+  } catch { list.innerHTML = '<div class="loading-state">Lỗi tải phòng học</div>'; }
+}
+
+async function createRoom() {
+  const name = $('roomName').value.trim();
+  const subject = $('roomSubject').value.trim();
+  if (!name) return toast('Nhập tên phòng', 'error');
+  try {
+    const room = await apiFetch('/rooms', { method: 'POST', body: JSON.stringify({ name, subject }) });
+    closeModal('createRoomModal');
+    $('roomName').value = ''; $('roomSubject').value = '';
+    toast(`Phòng "${name}" đã tạo! Mã: ${room.invite_code}`);
+    enterRoom(room.id);
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function joinRoom() {
+  const code = $('joinRoomCode').value.trim().toUpperCase();
+  if (!code) return toast('Nhập mã phòng', 'error');
+  try {
+    const room = await apiFetch('/rooms/join', { method: 'POST', body: JSON.stringify({ code }) });
+    closeModal('joinRoomModal');
+    $('joinRoomCode').value = '';
+    toast(`Đã vào phòng: ${room.name}`);
+    enterRoom(room.id);
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function enterRoom(id) {
+  currentRoomId = id;
+  $('roomsList').style.display = 'none';
+  $('roomDetail').style.display = 'block';
+  document.querySelector('.page-header').style.display = 'none';
+  await refreshRoom();
+  // Poll mỗi 5 giây
+  if (roomPollInterval) clearInterval(roomPollInterval);
+  roomPollInterval = setInterval(refreshRoom, 5000);
+}
+
+async function refreshRoom() {
+  if (!currentRoomId) return;
+  try {
+    const room = await apiFetch('/rooms/' + currentRoomId);
+    $('roomDetailName').textContent = room.name;
+    $('copyRoomCodeBtn').title = 'Mã: ' + room.invite_code;
+
+    // Render members
+    const membersList = $('roomMembersList');
+    membersList.innerHTML = room.members.map(m => {
+      const avatarHtml = m.custom_avatar
+        ? `<img src="${m.custom_avatar.startsWith('http') ? m.custom_avatar : API.replace('/api','') + m.custom_avatar}" />`
+        : m.avatar || '👤';
+      return `<div class="room-member-item">
+        <div class="rmi-avatar">${avatarHtml}</div>
+        <div class="rmi-info">
+          <div class="rmi-name">${escHtml(m.name)}</div>
+          <div class="rmi-status studying">${m.study_subject ? '📚 ' + escHtml(m.study_subject) : '🟢 Đang học'}</div>
+        </div>
+        <span style="font-size:0.65rem;color:var(--text-muted)">Lv.${m.level||1}</span>
+      </div>`;
+    }).join('');
+
+    // Render messages
+    const chatEl = $('roomChatMessages');
+    const wasAtBottom = chatEl.scrollHeight - chatEl.scrollTop <= chatEl.clientHeight + 50;
+    chatEl.innerHTML = room.messages.map(m => {
+      const isMe = currentUser && m.user_id === currentUser.id;
+      return `<div class="rcm-item ${isMe ? 'mine' : ''}">
+        <div class="rcm-bubble">
+          ${!isMe ? `<div class="rcm-name">${escHtml(m.sender_name)}</div>` : ''}
+          ${escHtml(m.content)}
+        </div>
+      </div>`;
+    }).join('');
+    if (wasAtBottom) chatEl.scrollTop = chatEl.scrollHeight;
+  } catch {}
+}
+
+async function sendRoomMessage() {
+  const input = $('roomMsgInput');
+  const content = input.value.trim();
+  if (!content || !currentRoomId) return;
+  input.value = '';
+  try {
+    await apiFetch(`/rooms/${currentRoomId}/message`, { method: 'POST', body: JSON.stringify({ content }) });
+    refreshRoom();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function updateRoomStatus() {
+  if (!currentRoomId) return;
+  const subject = $('myStudySubject').value;
+  try { await apiFetch(`/rooms/${currentRoomId}/status`, { method: 'PATCH', body: JSON.stringify({ status: 'studying', study_subject: subject }) }); }
+  catch {}
+}
+
+function copyRoomCode() {
+  if (!currentRoomId) return;
+  apiFetch('/rooms/' + currentRoomId).then(r => {
+    navigator.clipboard?.writeText(r.invite_code);
+    toast('Đã copy mã: ' + r.invite_code);
+  }).catch(() => {});
+}
+
+async function leaveRoom() {
+  if (!currentRoomId) return;
+  try {
+    await apiFetch(`/rooms/${currentRoomId}/leave`, { method: 'DELETE' });
+    exitRoom();
+    loadRooms();
+    toast('Đã rời phòng học');
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+function exitRoom() {
+  currentRoomId = null;
+  if (roomPollInterval) { clearInterval(roomPollInterval); roomPollInterval = null; }
+  $('roomsList').style.display = 'grid';
+  $('roomDetail').style.display = 'none';
+  const header = document.querySelector('#page-rooms .page-header');
+  if (header) header.style.display = 'flex';
+}
+
+// ═══════════════════════════════════════════════════════
+// ROADMAP
+// ═══════════════════════════════════════════════════════
+const taskTypeIcons = { study: '📖', practice: '✏️', review: '🔄', test: '📝' };
+
+async function loadRoadmapList() {
+  const list = $('roadmapList');
+  if (!list) return;
+  list.innerHTML = '<div class="loading-state">Đang tải...</div>';
+  try {
+    const roadmaps = await apiFetch('/roadmap');
+    if (!roadmaps.length) {
+      list.innerHTML = `<div class="empty-state"><div class="es-icon">🗺️</div><div class="es-text">Chưa có lộ trình học nào.<br/>Tạo lộ trình cá nhân hoá với AI!</div></div>`;
+      return;
+    }
+    list.innerHTML = roadmaps.map(r => {
+      const data = r.data || {};
+      const progress = r.progress || {};
+      const completedWeeks = Object.values(progress).filter(Boolean).length;
+      const totalWeeks = r.total_weeks || 8;
+      const pct = Math.round((completedWeeks / totalWeeks) * 100);
+      return `<div class="roadmap-card card" onclick="viewRoadmap(${r.id})">
+        <div class="rmcard-header">
+          <div>
+            <div class="rmcard-title">${escHtml(r.title)}</div>
+            <div class="rmcard-meta">📚 ${escHtml(r.subject||'Chung')} · 🎯 ${escHtml(r.level||'')} · ${totalWeeks} tuần</div>
+          </div>
+          <button onclick="event.stopPropagation();deleteRoadmap(${r.id})" class="mat-delete" style="opacity:1;position:relative;top:auto;right:auto">✕</button>
+        </div>
+        <div class="rmcard-progress">
+          <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--text-muted)">
+            <span>Tiến độ</span><span>${completedWeeks}/${totalWeeks} tuần · ${pct}%</span>
+          </div>
+          <div class="rmcard-prog-bar"><div class="rmcard-prog-fill" style="width:${pct}%"></div></div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch { list.innerHTML = '<div class="loading-state">Lỗi tải lộ trình</div>'; }
+}
+
+async function generateRoadmap() {
+  const goal = $('rmGoal').value.trim();
+  if (!goal) return toast('Nhập mục tiêu học tập', 'error');
+  const btn = $('createRoadmapBtn');
+  btn.disabled = true; btn.textContent = '⏳ AI đang tạo lộ trình...';
+  try {
+    await apiFetch('/roadmap/generate', { method: 'POST', body: JSON.stringify({
+      goal, subject: $('rmSubject').value, level: $('rmLevel').value,
+      weeks: $('rmWeeks').value, current_level: $('rmCurrentLevel').value
+    })});
+    closeModal('createRoadmapModal');
+    $('rmGoal').value = '';
+    loadRoadmapList();
+    toast('🗺️ Lộ trình đã được tạo!');
+  } catch (err) { toast(err.message, 'error'); }
+  btn.disabled = false; btn.textContent = '✨ Tạo với AI';
+}
+
+async function viewRoadmap(id) {
+  const detail = $('roadmapDetail');
+  const list = $('roadmapList');
+  try {
+    const r = await apiFetch('/roadmap/' + id);
+    const data = r.data || {};
+    const progress = r.progress || {};
+    list.style.display = 'none';
+    detail.style.display = 'block';
+    detail.innerHTML = `
+      <div class="roadmap-detail-header">
+        <button class="btn btn-ghost" onclick="$('roadmapList').style.display='block';$('roadmapDetail').style.display='none'">← Quay lại</button>
+        <div>
+          <h2 style="font-family:var(--font-display);font-size:1.3rem">${escHtml(r.title)}</h2>
+          <p style="font-size:0.8rem;color:var(--text-muted)">${escHtml(r.description||'')}</p>
+        </div>
+      </div>
+      ${data.tips ? `<div class="card" style="padding:1rem;margin-bottom:1rem;background:rgba(124,111,255,0.05);border-color:rgba(124,111,255,0.2)">
+        <div style="font-size:0.72rem;font-weight:700;color:var(--accent);margin-bottom:0.5rem">💡 MẸO HỌC TẬP</div>
+        ${data.tips.map(t => `<div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">• ${escHtml(t)}</div>`).join('')}
+      </div>` : ''}
+      <div class="rm-weeks-grid">
+        ${(data.weeks||[]).map(w => {
+          const isDone = progress[`week_${w.week}`];
+          return `<div class="rm-week-card ${isDone?'completed':''}">
+            <div class="rmw-header">
+              <div><div class="rmw-num">Tuần ${w.week}</div><div class="rmw-theme">${escHtml(w.theme||'')}</div></div>
+              ${isDone ? '<span style="color:#4af0d4;font-size:1.2rem">✓</span>' : ''}
+            </div>
+            <div class="rmw-goals">${(w.goals||[]).map(g=>`<div class="rmw-goal">${escHtml(g)}</div>`).join('')}</div>
+            <div class="rmw-tasks">${(w.tasks||[]).slice(0,4).map(t=>`<div class="rmw-task"><span class="task-type-icon">${taskTypeIcons[t.type]||'📌'}</span><span>${escHtml(t.title)}</span></div>`).join('')}</div>
+            <button class="rmw-complete-btn" onclick="toggleWeekComplete(${r.id},${w.week},${!isDone})">
+              ${isDone ? '✓ Hoàn thành' : '○ Đánh dấu hoàn thành'}
+            </button>
+          </div>`;
+        }).join('')}
+      </div>`;
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function toggleWeekComplete(roadmapId, week, completed) {
+  try {
+    await apiFetch(`/roadmap/${roadmapId}/progress`, { method: 'PATCH', body: JSON.stringify({ week, completed }) });
+    viewRoadmap(roadmapId);
+    if (completed) { toast(`✅ Tuần ${week} hoàn thành! +10 EXP`); apiFetch('/profile/exp', { method: 'POST', body: JSON.stringify({ amount: 10 }) }); }
+  } catch {}
+}
+
+async function deleteRoadmap(id) {
+  try { await apiFetch('/roadmap/' + id, { method: 'DELETE' }); loadRoadmapList(); toast('Đã xóa lộ trình'); }
+  catch (err) { toast(err.message, 'error'); }
+}
+
+// ═══════════════════════════════════════════════════════
+// MINI GAMES
+// ═══════════════════════════════════════════════════════
+let gameCards = [];
+let gameScore = 0;
+let gameTimer = null;
+let gameTimeLeft = 30;
+let gameType = '';
+let matchSelected = null;
+let matchPairs = [];
+
+async function startGame(type) {
+  gameType = type;
+  if (!flashcards.length) {
+    try { flashcards = await apiFetch('/flashcards'); }
+    catch { return toast('Cần có flashcard để chơi!', 'error'); }
+  }
+  if (flashcards.length < 4) return toast('Cần ít nhất 4 flashcard để chơi!', 'error');
+
+  // Shuffle và lấy tối đa 10 thẻ
+  gameCards = [...flashcards].sort(() => Math.random() - 0.5).slice(0, 10);
+  gameScore = 0;
+  $('gameSelector').style.display = 'none';
+  $('gameArea').style.display = 'block';
+
+  if (type === 'flashspeed') renderFlashSpeedGame();
+  else if (type === 'match') renderMatchGame();
+  else if (type === 'typing') renderTypingGame();
+  else if (type === 'truefalse') renderTrueFalseGame();
+}
+
+function exitGame() {
+  clearInterval(gameTimer);
+  $('gameSelector').style.display = 'block';
+  $('gameArea').style.display = 'none';
+  gameCards = []; gameScore = 0; matchSelected = null;
+}
+
+// ── Flash Speed ──────────────────────────────────────
+let fsIndex = 0;
+function renderFlashSpeedGame() {
+  fsIndex = 0;
+  $('gameArea').innerHTML = `
+    <div class="game-play-header">
+      <button class="btn btn-ghost btn-sm" onclick="exitGame()">← Thoát</button>
+      <div style="font-size:0.85rem;color:var(--text-muted)">⚡ Flash Speed</div>
+      <div class="game-score" id="gsScore">0 điểm</div>
+    </div>
+    <div class="flash-card-game">
+      <div class="fcg-question" id="fsQuestion">${escHtml(gameCards[0].question)}</div>
+      <div id="fsCardNum" style="text-align:center;color:var(--text-muted);font-size:0.75rem;margin-bottom:0.8rem">1 / ${gameCards.length}</div>
+      <div class="fcg-answer-input">
+        <input type="text" id="fsAnswer" class="input-field" placeholder="Nhập đáp án..." onkeydown="if(event.key==='Enter')checkFSAnswer()" autofocus />
+        <button class="btn btn-primary" onclick="checkFSAnswer()">✓</button>
+        <button class="btn btn-ghost" onclick="skipFS()">Skip →</button>
+      </div>
+      <div id="fsFeedback" style="text-align:center;margin-top:0.8rem;height:24px;font-size:0.85rem"></div>
+    </div>`;
+}
+
+function checkFSAnswer() {
+  const input = $('fsAnswer');
+  const userAns = input.value.trim().toLowerCase();
+  const correct = gameCards[fsIndex].answer.toLowerCase();
+  const feedback = $('fsFeedback');
+  if (userAns && (correct.includes(userAns) || userAns.includes(correct.substring(0, 10)))) {
+    gameScore += 10;
+    $('gsScore').textContent = gameScore + ' điểm';
+    feedback.innerHTML = '<span style="color:#4af0d4">✅ Đúng! +10</span>';
+  } else {
+    feedback.innerHTML = `<span style="color:#ff6464">❌ Đáp án: ${escHtml(gameCards[fsIndex].answer)}</span>`;
+  }
+  input.value = '';
+  setTimeout(() => { feedback.innerHTML = ''; nextFS(); }, 1200);
+}
+
+function skipFS() { nextFS(); }
+
+function nextFS() {
+  fsIndex++;
+  if (fsIndex >= gameCards.length) { showGameResult('Flash Speed'); return; }
+  $('fsQuestion').textContent = gameCards[fsIndex].question;
+  $('fsCardNum').textContent = `${fsIndex+1} / ${gameCards.length}`;
+  $('fsAnswer').focus();
+}
+
+// ── Match Game ───────────────────────────────────────
+function renderMatchGame() {
+  const pairs = gameCards.slice(0, 6);
+  const questions = pairs.map((c, i) => ({ id: i, text: c.question, type: 'q', pairId: i }));
+  const answers = pairs.map((c, i) => ({ id: i + 10, text: c.answer, type: 'a', pairId: i }));
+  matchPairs = [...questions, ...answers].sort(() => Math.random() - 0.5);
+  matchSelected = null;
+
+  $('gameArea').innerHTML = `
+    <div class="game-play-header">
+      <button class="btn btn-ghost btn-sm" onclick="exitGame()">← Thoát</button>
+      <div style="font-size:0.85rem;color:var(--text-muted)">🎯 Ghép đôi</div>
+      <div class="game-score" id="gsScore">0 điểm</div>
+    </div>
+    <p style="text-align:center;color:var(--text-muted);font-size:0.8rem;margin-bottom:1rem">Chọn câu hỏi và đáp án tương ứng</p>
+    <div class="match-grid" id="matchGrid">
+      ${matchPairs.map(item => `
+        <div class="match-item" id="match-${item.id}" data-id="${item.id}" data-pairid="${item.pairId}" data-type="${item.type}" onclick="selectMatchItem(this)">
+          ${escHtml(item.text.substring(0, 60))}${item.text.length > 60 ? '...' : ''}
+        </div>`).join('')}
+    </div>`;
+}
+
+function selectMatchItem(el) {
+  if (el.classList.contains('matched')) return;
+  if (!matchSelected) {
+    el.classList.add('selected');
+    matchSelected = el;
+  } else {
+    const a = matchSelected, b = el;
+    if (a.dataset.id === b.dataset.id) { a.classList.remove('selected'); matchSelected = null; return; }
+    if (a.dataset.pairid === b.dataset.pairid && a.dataset.type !== b.dataset.type) {
+      a.classList.remove('selected'); a.classList.add('matched');
+      b.classList.add('matched');
+      gameScore += 15; $('gsScore').textContent = gameScore + ' điểm';
+      matchSelected = null;
+      if (document.querySelectorAll('.match-item:not(.matched)').length === 0) setTimeout(() => showGameResult('Ghép đôi'), 500);
+    } else {
+      a.classList.add('wrong'); b.classList.add('wrong');
+      setTimeout(() => { a.classList.remove('selected','wrong'); b.classList.remove('wrong'); matchSelected = null; }, 800);
+    }
+  }
+}
+
+// ── True/False ───────────────────────────────────────
+let tfIndex = 0;
+function renderTrueFalseGame() {
+  tfIndex = 0; gameTimeLeft = gameCards.length * 5;
+  renderTFCard();
+  gameTimer = setInterval(() => {
+    gameTimeLeft--;
+    const el = $('tfTimer');
+    if (el) { el.textContent = gameTimeLeft + 's'; if (gameTimeLeft <= 5) el.classList.add('urgent'); }
+    if (gameTimeLeft <= 0) { clearInterval(gameTimer); showGameResult('Đúng hay Sai'); }
+  }, 1000);
+}
+
+function renderTFCard() {
+  if (tfIndex >= gameCards.length) { clearInterval(gameTimer); showGameResult('Đúng hay Sai'); return; }
+  // 50% hiện đáp án đúng, 50% đáp án sai (từ thẻ khác)
+  const card = gameCards[tfIndex];
+  const isTrue = Math.random() > 0.5;
+  const displayAnswer = isTrue ? card.answer : gameCards[(tfIndex + 1) % gameCards.length].answer;
+
+  $('gameArea').innerHTML = `
+    <div class="game-play-header">
+      <button class="btn btn-ghost btn-sm" onclick="exitGame()">← Thoát</button>
+      <div class="game-score" id="gsScore">${gameScore} điểm</div>
+      <div class="game-timer" id="tfTimer">${gameTimeLeft}s</div>
+    </div>
+    <div class="flash-card-game" style="text-align:center">
+      <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.5rem">${tfIndex+1}/${gameCards.length}</div>
+      <div class="fcg-question">${escHtml(card.question)}</div>
+      <div style="padding:1rem;background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);margin-bottom:1rem;font-size:0.9rem;color:var(--text)">
+        ${escHtml(displayAnswer)}
+      </div>
+      <div style="display:flex;gap:1rem;justify-content:center">
+        <button class="btn btn-primary" style="flex:1;max-width:160px;background:linear-gradient(135deg,#4af0d4,#00b894)" onclick="answerTF(${isTrue}, true)">✅ Đúng</button>
+        <button class="btn btn-primary" style="flex:1;max-width:160px;background:linear-gradient(135deg,#ff6464,#e84393)" onclick="answerTF(${isTrue}, false)">❌ Sai</button>
+      </div>
+    </div>`;
+}
+
+function answerTF(isActuallyTrue, userSaidTrue) {
+  if (isActuallyTrue === userSaidTrue) { gameScore += 10; toast('✅ Đúng! +10', 'success'); }
+  else { toast('❌ Sai!', 'error'); }
+  tfIndex++;
+  setTimeout(renderTFCard, 600);
+}
+
+// ── Typing Game ──────────────────────────────────────
+let typIndex = 0;
+function renderTypingGame() {
+  typIndex = 0; gameTimeLeft = 60;
+  renderTypCard();
+  gameTimer = setInterval(() => {
+    gameTimeLeft--;
+    const el = $('typTimer');
+    if (el) { el.textContent = gameTimeLeft + 's'; if (gameTimeLeft <= 10) el.classList.add('urgent'); }
+    if (gameTimeLeft <= 0) { clearInterval(gameTimer); showGameResult('Gõ nhanh'); }
+  }, 1000);
+}
+
+function renderTypCard() {
+  if (typIndex >= gameCards.length) { clearInterval(gameTimer); showGameResult('Gõ nhanh'); return; }
+  const card = gameCards[typIndex];
+  const area = $('gameArea');
+  area.innerHTML = `
+    <div class="game-play-header">
+      <button class="btn btn-ghost btn-sm" onclick="exitGame();clearInterval(gameTimer)">← Thoát</button>
+      <div class="game-score" id="gsScore">${gameScore} điểm</div>
+      <div class="game-timer" id="typTimer">${gameTimeLeft}s</div>
+    </div>
+    <div class="flash-card-game">
+      <div style="font-size:0.7rem;color:var(--text-muted);text-align:center;margin-bottom:0.5rem">${typIndex+1}/${gameCards.length}</div>
+      <div class="fcg-question">${escHtml(card.question)}</div>
+      <div class="fcg-answer-input">
+        <input type="text" id="typAnswer" class="input-field" placeholder="Gõ đáp án..." onkeydown="if(event.key==='Enter')checkTypAnswer()" autofocus />
+        <button class="btn btn-primary" onclick="checkTypAnswer()">↵</button>
+      </div>
+      <div id="typFeedback" style="text-align:center;margin-top:0.5rem;height:20px;font-size:0.82rem"></div>
+    </div>`;
+}
+
+function checkTypAnswer() {
+  const input = $('typAnswer');
+  const userAns = input.value.trim().toLowerCase();
+  const correct = gameCards[typIndex].answer.toLowerCase();
+  const feedback = $('typFeedback');
+  if (userAns && (correct.includes(userAns) || userAns.includes(correct.substring(0, 8)))) {
+    gameScore += 10; feedback.innerHTML = '<span style="color:#4af0d4">✅ +10</span>';
+  } else {
+    feedback.innerHTML = `<span style="color:#ff6464">❌ ${escHtml(gameCards[typIndex].answer.substring(0, 30))}</span>`;
+  }
+  typIndex++;
+  setTimeout(renderTypCard, 800);
+}
+
+// ── Game Result ──────────────────────────────────────
+function showGameResult(gameName) {
+  clearInterval(gameTimer);
+  const total = gameCards.length * (gameName === 'Ghép đôi' ? 15 : 10);
+  const pct = Math.min(Math.round((gameScore / total) * 100), 100);
+  const emoji = pct >= 80 ? '🎉' : pct >= 60 ? '👍' : '💪';
+  $('gameArea').innerHTML = `
+    <div class="game-result">
+      <div style="font-size:3rem">${emoji}</div>
+      <h2 style="font-family:var(--font-display);font-size:1.4rem;margin:0.5rem 0">${gameName} — Kết thúc!</h2>
+      <div class="game-result-score">${gameScore} điểm</div>
+      <div class="game-result-msg">${pct}% chính xác · ${gameCards.length} câu</div>
+      <div style="display:flex;gap:0.8rem;justify-content:center">
+        <button class="btn btn-primary" onclick="startGame('${gameType}')">🔄 Chơi lại</button>
+        <button class="btn btn-ghost" onclick="exitGame()">← Về menu</button>
+      </div>
+    </div>`;
+  // EXP
+  const exp = Math.floor(gameScore / 10);
+  if (exp > 0) { apiFetch('/profile/exp', { method: 'POST', body: JSON.stringify({ amount: exp }) }); toast(`+${exp} EXP! 🎮`); }
+}
+
+// ═══════════════════════════════════════════════════════
+// SCAN & SAVE
+// ═══════════════════════════════════════════════════════
+let scanStream = null;
+let scanFile = null;
+
+async function startCamera() {
+  try {
+    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
+    const video = $('scanVideo');
+    video.srcObject = scanStream;
+    video.style.display = 'block';
+    $('scanPlaceholder').style.display = 'none';
+    $('startCamBtn').style.display = 'none';
+    $('captureBtn').style.display = 'flex';
+  } catch (err) {
+    toast('Không thể mở camera: ' + err.message, 'error');
+  }
+}
+
+function capturePhoto() {
+  const video = $('scanVideo');
+  const canvas = $('scanCanvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  canvas.toBlob(blob => {
+    scanFile = new File([blob], 'capture.jpg', { type: 'image/jpeg' });
+    showScanPreview(URL.createObjectURL(blob));
+    stopCamera();
+  }, 'image/jpeg', 0.9);
+}
+
+function stopCamera() {
+  if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+  $('scanVideo').style.display = 'none';
+  $('captureBtn').style.display = 'none';
+  $('startCamBtn').style.display = 'flex';
+}
+
+function handleScanFile(file) {
+  if (!file) return;
+  scanFile = file;
+  showScanPreview(URL.createObjectURL(file));
+}
+
+function showScanPreview(url) {
+  $('scanPreview').src = url;
+  $('scanPreview').style.display = 'block';
+  $('scanPlaceholder').style.display = 'none';
+  $('scanRunBtn').style.display = 'block';
+}
+
+async function runScanOCR() {
+  if (!scanFile) return toast('Chụp ảnh hoặc tải ảnh lên trước', 'error');
+  $('scanResultCard').style.display = 'flex';
+  $('scanLoadingIndicator').style.display = 'flex';
+  $('scanExtractedText').value = '';
+
+  const formData = new FormData();
+  formData.append('image', scanFile);
+  try {
+    const res = await fetch(`${API}/ocr`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + getToken() }, body: formData });
+    const data = await res.json();
+    $('scanLoadingIndicator').style.display = 'none';
+    if (!res.ok) return toast('❌ ' + (data.error || 'Lỗi OCR'), 'error');
+    $('scanExtractedText').value = data.text;
+    toast(`✅ Đã đọc ${data.char_count} ký tự!`);
+  } catch (err) {
+    $('scanLoadingIndicator').style.display = 'none';
+    toast('❌ Lỗi kết nối', 'error');
+  }
+}
+
+async function scanSaveAsNote() {
+  const text = $('scanExtractedText')?.value.trim();
+  if (!text) return toast('Chưa có nội dung', 'error');
+  try {
+    await apiFetch('/materials', { method: 'POST', body: JSON.stringify({ title: 'Scan ' + new Date().toLocaleDateString('vi-VN'), content: text, type: 'note' }) });
+    toast('💾 Đã lưu vào Tài liệu!');
+  } catch { toast('Lỗi lưu', 'error'); }
+}
+
+async function scanCreateFlashcards() {
+  const text = $('scanExtractedText')?.value.trim();
+  const subject = $('scanFlashSubject')?.value.trim() || 'Chung';
+  if (!text) return toast('Chưa có nội dung', 'error');
+  try {
+    const data = await apiFetch('/ai/generate-flashcards', { method: 'POST', body: JSON.stringify({ text, subject, count: 8 }) });
+    if (!data.flashcards?.length) return toast('Không tạo được flashcard', 'error');
+    await apiFetch('/flashcards/bulk', { method: 'POST', body: JSON.stringify({ flashcards: data.flashcards, subject }) });
+    closeModal('scanFlashcardModal');
+    toast(`🃏 Đã tạo ${data.flashcards.length} flashcard!`);
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+function scanSendToAI() {
+  const text = $('scanExtractedText')?.value.trim();
+  if (!text) return toast('Chưa có nội dung', 'error');
+  navigate('ai');
+  setTimeout(() => {
+    const input = $('chatInput');
+    if (input) { input.value = 'Tôi vừa scan được nội dung này:\n\n' + text.substring(0, 500); input.focus(); }
+  }, 300);
+}
+
+function copyScanText() {
+  const text = $('scanExtractedText')?.value;
+  if (!text) return;
+  navigator.clipboard?.writeText(text).then(() => toast('📋 Đã copy!'));
+}
+
+// ── Update navigate for new pages ────────────────────
+const _navigateFinal = navigate;
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  $(`page-${page}`)?.classList.add('active');
+  document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
+
+  // Stop room polling when leaving
+  if (page !== 'rooms' && roomPollInterval) { clearInterval(roomPollInterval); roomPollInterval = null; }
+  // Stop camera when leaving scan
+  if (page !== 'scan' && scanStream) stopCamera();
+
+  setTimeout(() => {
+    if (page === 'tasks') loadTasks();
+    if (page === 'materials') { loadSubjects(); loadMaterials(); }
+    if (page === 'flashcards') loadFlashcards();
+    if (page === 'stats') loadStats();
+    if (page === 'profile') loadProfile();
+    if (page === 'ai') loadChatHistory();
+    if (page === 'calendar') loadCalendar();
+    if (page === 'quiz') loadQuizList();
+    if (page === 'rooms') { exitRoom(); loadRooms(); }
+    if (page === 'roadmap') { $('roadmapDetail').style.display='none'; $('roadmapList').style.display='block'; loadRoadmapList(); }
+    if (page === 'games') { flashcards.length || apiFetch('/flashcards').then(d => flashcards = d).catch(()=>{}); }
+  }, 0);
+}
+
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.onclick = () => { requestAnimationFrame(() => navigate(item.dataset.page)); if (window.innerWidth <= 768) closeSidebar(); };
+});

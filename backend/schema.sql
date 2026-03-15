@@ -148,3 +148,49 @@ CREATE TABLE IF NOT EXISTS quiz_results (
   created_at   TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_quiz_user ON quizzes(user_id);
+
+-- ─── Study Rooms ──────────────────────────────────────
+CREATE TABLE IF NOT EXISTS study_rooms (
+  id          SERIAL PRIMARY KEY,
+  name        VARCHAR(100) NOT NULL,
+  subject     VARCHAR(100) DEFAULT 'Chung',
+  owner_id    INT REFERENCES users(id) ON DELETE CASCADE,
+  invite_code VARCHAR(10) UNIQUE NOT NULL,
+  is_private  BOOLEAN DEFAULT FALSE,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS room_members (
+  room_id       INT REFERENCES study_rooms(id) ON DELETE CASCADE,
+  user_id       INT REFERENCES users(id) ON DELETE CASCADE,
+  status        VARCHAR(30) DEFAULT 'studying',
+  study_subject VARCHAR(100),
+  updated_at    TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (room_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS room_messages (
+  id         SERIAL PRIMARY KEY,
+  room_id    INT REFERENCES study_rooms(id) ON DELETE CASCADE,
+  user_id    INT REFERENCES users(id) ON DELETE CASCADE,
+  content    TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_room_messages ON room_messages(room_id, created_at);
+
+-- ─── Roadmaps ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS roadmaps (
+  id          SERIAL PRIMARY KEY,
+  user_id     INT REFERENCES users(id) ON DELETE CASCADE,
+  title       VARCHAR(200) NOT NULL,
+  description TEXT,
+  subject     VARCHAR(100),
+  goal        TEXT,
+  level       VARCHAR(50),
+  total_weeks INT DEFAULT 8,
+  data        JSONB,
+  progress    JSONB DEFAULT '{}',
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_roadmaps_user ON roadmaps(user_id);
