@@ -2566,3 +2566,154 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+// ═══════════════════════════════════════════════════════
+// COLLAPSIBLE SIDEBAR
+// ═══════════════════════════════════════════════════════
+
+let sidebarOpen = true;
+
+/**
+ * Tạo overlay cho mobile
+ */
+function getOrCreateOverlay() {
+  let overlay = document.getElementById('sidebarOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    overlay.id = 'sidebarOverlay';
+    overlay.onclick = closeSidebar;
+    document.body.appendChild(overlay);
+  }
+  return overlay;
+}
+
+/**
+ * Toggle sidebar mở/đóng
+ */
+function toggleSidebar() {
+  const isMobile = window.innerWidth <= 768;
+  if (isMobile) {
+    if (sidebarOpen) closeSidebar();
+    else openSidebar();
+  } else {
+    if (sidebarOpen) collapseSidebar();
+    else expandSidebar();
+  }
+}
+
+/** Mở sidebar trên mobile */
+function openSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const fab = document.getElementById('sidebarOpenFab');
+  const overlay = getOrCreateOverlay();
+
+  sidebar.classList.add('mobile-open');
+  overlay.classList.add('show');
+  fab.style.display = 'none';
+  sidebarOpen = true;
+}
+
+/** Đóng sidebar trên mobile */
+function closeSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const fab = document.getElementById('sidebarOpenFab');
+  const overlay = getOrCreateOverlay();
+
+  sidebar.classList.remove('mobile-open');
+  overlay.classList.remove('show');
+  fab.style.display = 'flex';
+  sidebarOpen = false;
+}
+
+/** Thu sidebar trên desktop */
+function collapseSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const main = document.getElementById('mainContent');
+  const btn = document.getElementById('sidebarToggleBtn');
+  const fab = document.getElementById('sidebarOpenFab');
+
+  sidebar.classList.add('collapsed');
+  main?.classList.add('expanded');
+  if (btn) btn.textContent = '›';
+  fab.style.display = 'flex';
+  sidebarOpen = false;
+  localStorage.setItem('sf_sidebar', 'closed');
+}
+
+/** Mở rộng sidebar trên desktop */
+function expandSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const main = document.getElementById('mainContent');
+  const btn = document.getElementById('sidebarToggleBtn');
+  const fab = document.getElementById('sidebarOpenFab');
+
+  sidebar.classList.remove('collapsed');
+  main?.classList.remove('expanded');
+  if (btn) btn.textContent = '‹';
+  fab.style.display = 'none';
+  sidebarOpen = true;
+  localStorage.setItem('sf_sidebar', 'open');
+}
+
+/**
+ * Khởi tạo sidebar — khôi phục trạng thái đã lưu
+ */
+function initSidebar() {
+  const isMobile = window.innerWidth <= 768;
+
+  if (isMobile) {
+    // Mobile: mặc định đóng
+    closeSidebar();
+  } else {
+    // Desktop: khôi phục trạng thái lưu
+    const saved = localStorage.getItem('sf_sidebar');
+    if (saved === 'closed') collapseSidebar();
+    else expandSidebar();
+  }
+
+  // Đóng sidebar khi click nav item trên mobile
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      if (window.innerWidth <= 768) closeSidebar();
+    });
+  });
+
+  // Responsive khi xoay màn hình
+  window.addEventListener('resize', () => {
+    const nowMobile = window.innerWidth <= 768;
+    if (!nowMobile) {
+      // Chuyển từ mobile → desktop
+      const overlay = document.getElementById('sidebarOverlay');
+      if (overlay) overlay.classList.remove('show');
+      document.getElementById('sidebar')?.classList.remove('mobile-open');
+      const saved = localStorage.getItem('sf_sidebar');
+      if (saved === 'closed') collapseSidebar();
+      else expandSidebar();
+    } else {
+      // Chuyển từ desktop → mobile
+      document.getElementById('sidebar')?.classList.remove('collapsed');
+      document.getElementById('mainContent')?.classList.remove('expanded');
+      closeSidebar();
+    }
+  });
+}
+
+// Thêm initSidebar vào init
+const _origInitFinal = init;
+async function init() {
+  loadSavedTheme();
+  initParticles();
+  setupFileDropZone();
+  initPWA();
+  initRichEditor();
+  initOCR();
+  initSidebar(); // ← sidebar
+  const authed = await checkAuth();
+  if (!authed) return;
+  await loadSidebarProfile();
+  loadStats();
+  checkSharedDeck();
+}
+
+document.addEventListener('DOMContentLoaded', init);

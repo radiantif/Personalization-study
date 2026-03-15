@@ -32,6 +32,7 @@
   <div class="sidebar-brand">
     <span class="brand-icon">✦</span>
     <span class="brand-name">StudyFlow</span>
+    <button class="sidebar-toggle-btn" id="sidebarToggleBtn" onclick="toggleSidebar()" title="Đóng/mở sidebar">‹</button>
   </div>
 
   <div class="sidebar-avatar" id="sidebarAvatar">
@@ -100,7 +101,9 @@
 <!-- ═══════════════════════════════════════════════════════════
      MAIN CONTENT
 ════════════════════════════════════════════════════════════ -->
-<main class="main-content">
+<button class="sidebar-open-fab" id="sidebarOpenFab" onclick="toggleSidebar()" title="Mở menu">☰</button>
+
+<main class="main-content" id="mainContent">
 
   <!-- ── PAGE: HOME ──────────────────────────────────────────── -->
   <section class="page active" id="page-home">
