@@ -5,7 +5,6 @@ const multer = require('multer');
 const pool = require('../db');
 const crypto = require('crypto');
 
-// Multer memory storage
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
@@ -16,12 +15,21 @@ const upload = multer({
   }
 });
 
-// Upload Cloudinary dùng multipart/form-data thuần — không cần form-data package
 async function uploadToCloudinary(buffer, mimetype, userId) {
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
   const apiKey = process.env.CLOUDINARY_API_KEY;
   const apiSecret = process.env.CLOUDINARY_API_SECRET;
-  if (!cloudName || !apiKey || !apiSecret) throw new Error('Chưa cấu hình Cloudinary');
+
+  console.log('Cloudinary config check:', {
+    hasCloudName: !!cloudName,
+    hasApiKey: !!apiKey,
+    hasApiSecret: !!apiSecret,
+    cloudName: cloudName
+  });
+
+  if (!cloudName || !apiKey || !apiSecret) {
+    throw new Error('Thiếu cấu hình Cloudinary. Kiểm tra CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET trên Render.');
+  }
 
   const timestamp = Math.floor(Date.now() / 1000);
   const folder = 'studyflow/avatars';
@@ -30,24 +38,23 @@ async function uploadToCloudinary(buffer, mimetype, userId) {
   const signStr = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
   const signature = crypto.createHash('sha256').update(signStr).digest('hex');
 
-  // Tạo multipart boundary thủ công
   const boundary = '----FormBoundary' + crypto.randomBytes(8).toString('hex');
-  const ext = mimetype.split('/')[1] || 'jpg';
+  const ext = mimetype.includes('png') ? 'png' : mimetype.includes('gif') ? 'gif' : mimetype.includes('webp') ? 'webp' : 'jpg';
 
-  function buildPart(name, value) {
-    return `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`;
-  }
-
-  const parts = [
-    buildPart('api_key', apiKey),
-    buildPart('timestamp', timestamp),
-    buildPart('signature', signature),
-    buildPart('folder', folder),
-    buildPart('public_id', publicId),
-    buildPart('transformation', 'w_200,h_200,c_fill,g_face,r_max,q_auto,f_auto'),
+  const fields = [
+    ['api_key', apiKey],
+    ['timestamp', String(timestamp)],
+    ['signature', signature],
+    ['folder', folder],
+    ['public_id', publicId],
+    ['transformation', 'w_200,h_200,c_fill,g_face,r_max,q_auto,f_auto'],
   ];
 
-  const textPart = parts.join('');
+  let textPart = '';
+  for (const [name, value] of fields) {
+    textPart += `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`;
+  }
+
   const filePart = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="avatar.${ext}"\r\nContent-Type: ${mimetype}\r\n\r\n`;
   const endPart = `\r\n--${boundary}--\r\n`;
 
@@ -58,20 +65,25 @@ async function uploadToCloudinary(buffer, mimetype, userId) {
     Buffer.from(endPart, 'utf8'),
   ]);
 
+  console.log('Uploading to Cloudinary, buffer size:', buffer.length);
+
   const response = await fetch(
     `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
     {
       method: 'POST',
       headers: {
         'Content-Type': `multipart/form-data; boundary=${boundary}`,
-        'Content-Length': body.length,
       },
       body,
     }
   );
 
   const data = await response.json();
-  if (data.error) throw new Error(data.error.message);
+  console.log('Cloudinary response status:', response.status);
+  console.log('Cloudinary response:', JSON.stringify(data).substring(0, 200));
+
+  if (data.error) throw new Error('Cloudinary: ' + data.error.message);
+  if (!data.secure_url) throw new Error('Cloudinary không trả về URL');
   return data.secure_url;
 }
 
@@ -99,9 +111,13 @@ router.post('/', async function(req, res) {
 
 // POST upload avatar
 router.post('/avatar', upload.single('avatar'), async function(req, res) {
+  console.log('Avatar upload request received');
+  console.log('File:', req.file ? { size: req.file.size, mimetype: req.file.mimetype } : 'none');
+
   if (!req.file) return res.status(400).json({ error: 'Không có file ảnh' });
   try {
     const url = await uploadToCloudinary(req.file.buffer, req.file.mimetype, req.user.id);
+    console.log('Upload success, URL:', url);
     const result = await pool.query(
       'UPDATE users SET custom_avatar=$1, updated_at=NOW() WHERE id=$2 RETURNING *',
       [url, req.user.id]
