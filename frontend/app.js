@@ -2142,3 +2142,348 @@ function insertTable() {
   document.execCommand('insertHTML', false, table);
   $('richEditor')?.focus();
 }
+
+// ═══════════════════════════════════════════════════════
+// DEEP OCR FEATURE
+// ═══════════════════════════════════════════════════════
+
+let ocrCurrentFile = null;    // File ảnh hiện tại
+let ocrSelectedSubject = 'Chung'; // Môn học được chọn
+let ocrSelectedLevel = 'THPT';    // Cấp độ được chọn
+
+/**
+ * Khởi tạo OCR — đăng ký drag & drop và paste từ clipboard
+ */
+function initOCR() {
+  const dropZone = $('ocrDropZone');
+  if (!dropZone) return;
+
+  // Drag & drop events
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) handleOcrFile(file);
+    else toast('Chỉ chấp nhận file ảnh', 'error');
+  });
+
+  // Paste từ clipboard (Ctrl+V)
+  document.addEventListener('paste', e => {
+    // Chỉ xử lý khi đang ở trang OCR
+    if (!$('page-ocr')?.classList.contains('active')) return;
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          handleOcrFile(file);
+          toast('📋 Đã dán ảnh từ clipboard!');
+          break;
+        }
+      }
+    }
+  });
+}
+
+/**
+ * Xử lý file ảnh được chọn
+ */
+function handleOcrFile(file) {
+  if (!file || !file.type.startsWith('image/')) {
+    toast('Vui lòng chọn file ảnh', 'error');
+    return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    toast('File quá lớn! Tối đa 10MB', 'error');
+    return;
+  }
+
+  ocrCurrentFile = file;
+
+  // Hiện preview
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = $('ocrPreviewImg');
+    if (img) img.src = e.target.result;
+    $('ocrPreviewWrap').style.display = 'block';
+    $('ocrDropZone').style.display = 'none';
+    $('ocrActions').style.display = 'flex';
+    // Reset result
+    $('ocrResultCard').style.display = 'none';
+    $('ocrAskOptions').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+/**
+ * Xóa ảnh và reset về trạng thái ban đầu
+ */
+function clearOcr() {
+  ocrCurrentFile = null;
+  $('ocrPreviewWrap').style.display = 'none';
+  $('ocrDropZone').style.display = 'flex';
+  $('ocrActions').style.display = 'none';
+  const solveSection = $('ocrSolveSection');
+  if (solveSection) solveSection.style.display = 'none';
+  const solvePanel = $('ocrSolvePanel');
+  if (solvePanel) solvePanel.style.display = 'none';
+  $('ocrResultCard').style.display = 'none';
+  $('ocrFileInput').value = '';
+}
+
+/**
+ * Chạy OCR — chỉ đọc văn bản
+ */
+async function runOCR() {
+  if (!ocrCurrentFile) return toast('Chọn ảnh trước', 'error');
+
+  showOcrLoading('🔍 Đang nhận diện văn bản...');
+
+  const formData = new FormData();
+  formData.append('image', ocrCurrentFile);
+
+  try {
+    const res = await fetch(`${API}/ocr`, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + getToken() },
+      body: formData,
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      hideOcrLoading();
+      toast('❌ ' + (data.error || 'Lỗi OCR'), 'error');
+      return;
+    }
+
+    // Hiển thị kết quả
+    showOcrTextResult(data);
+    toast(`✅ Đọc được ${data.char_count} ký tự (${data.line_count} dòng)`);
+
+  } catch (err) {
+    hideOcrLoading();
+    toast('❌ Lỗi kết nối server', 'error');
+    console.error('OCR error:', err);
+  }
+}
+
+/**
+ * Toggle panel chọn môn để giải bài
+ */
+function toggleSolvePanel() {
+  const panel = $('ocrSolvePanel');
+  if (!panel) return;
+  const isHidden = panel.style.display === 'none';
+  panel.style.display = isHidden ? 'flex' : 'none';
+}
+
+/** Chọn môn học */
+function selectOcrSubject(btn) {
+  document.querySelectorAll('.osp-subject-list .osp-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  ocrSelectedSubject = btn.dataset.val;
+}
+
+/** Chọn cấp độ */
+function selectOcrLevel(btn) {
+  document.querySelectorAll('.osp-level-list .osp-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  ocrSelectedLevel = btn.dataset.val;
+}
+
+/**
+ * Hiện form hỏi AI (legacy - kept for compatibility)
+ */
+function runOCRAndAsk() {
+  toggleSolvePanel();
+}
+
+/**
+ * OCR + hỏi AI trong 1 lần
+ */
+async function submitOCRAsk() {
+  if (!ocrCurrentFile) return toast('Chọn ảnh trước', 'error');
+
+  const question = 'Hãy giải bài tập trong ảnh này từng bước chi tiết';
+  const subject = ocrSelectedSubject || 'Chung';
+  const level = ocrSelectedLevel || 'THPT';
+
+  showOcrLoading('🤖 AI đang phân tích ảnh...');
+
+  const formData = new FormData();
+  formData.append('image', ocrCurrentFile);
+  formData.append('question', question);
+  formData.append('subject', subject);
+  formData.append('level', level);
+
+  try {
+    const res = await fetch(`${API}/ocr/ask-ai`, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + getToken() },
+      body: formData,
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      hideOcrLoading();
+      toast('❌ ' + (data.error || 'Lỗi AI'), 'error');
+      return;
+    }
+
+    // Hiển thị câu trả lời AI
+    showOcrAiResult(data.answer, subject, level);
+    toast('✅ AI đã phân tích xong!');
+
+  } catch (err) {
+    hideOcrLoading();
+    toast('❌ Lỗi kết nối server', 'error');
+  }
+}
+
+// ── Helper hiển thị ────────────────────────────────────
+
+function showOcrLoading(msg) {
+  $('ocrResultCard').style.display = 'flex';
+  $('ocrLoading').style.display = 'flex';
+  $('ocrLoadingText').textContent = msg || 'Đang xử lý...';
+  $('ocrTextResult').style.display = 'none';
+  $('ocrAiResult').style.display = 'none';
+}
+
+function hideOcrLoading() {
+  $('ocrLoading').style.display = 'none';
+}
+
+function showOcrTextResult(data) {
+  hideOcrLoading();
+  $('ocrResultCard').style.display = 'flex';
+  $('ocrResultTitle').textContent = '📄 Văn bản đã trích xuất';
+
+  // Meta info
+  const methodLabel = data.method === 'groq-vision' ? '🤖 Groq Vision AI' : '📖 Tesseract OCR';
+  $('ocrMeta').innerHTML = `
+    <span>${methodLabel}</span>
+    <span>📝 ${data.char_count} ký tự</span>
+    <span>📋 ${data.line_count} dòng</span>
+  `;
+  $('ocrMeta').style.display = 'flex';
+
+  // Text output
+  $('ocrOutput').textContent = data.text;
+  $('ocrTextResult').style.display = 'block';
+  $('ocrAiResult').style.display = 'none';
+
+  // Lưu text để dùng sau
+  $('ocrOutput').dataset.text = data.text;
+
+  // Hiện nút "Giải bài tập" sau khi đọc xong
+  const solveSection = $('ocrSolveSection');
+  if (solveSection) solveSection.style.display = 'block';
+}
+
+function showOcrAiResult(answer, subject, level) {
+  hideOcrLoading();
+  $('ocrResultCard').style.display = 'flex';
+  $('ocrResultTitle').textContent = `🤖 AI ${subject} — ${level}`;
+  $('ocrMeta').style.display = 'none';
+  $('ocrTextResult').style.display = 'none';
+  $('ocrAiResult').style.display = 'block';
+  $('ocrAiAnswer').innerHTML = formatAIResponse(answer);
+  $('ocrAiAnswer').dataset.text = answer;
+  // Ẩn solve panel sau khi đã giải
+  const panel = $('ocrSolvePanel');
+  if (panel) panel.style.display = 'none';
+}
+
+/** Copy văn bản OCR ra clipboard */
+function copyOcrText() {
+  const text = $('ocrOutput')?.dataset.text || $('ocrAiAnswer')?.dataset.text || '';
+  if (!text) return toast('Không có nội dung để copy', 'error');
+  navigator.clipboard?.writeText(text)
+    .then(() => toast('📋 Đã copy!'))
+    .catch(() => toast('Không thể copy', 'error'));
+}
+
+/** Gửi văn bản OCR sang AI Tutor để hỏi thêm */
+function sendOcrToChat() {
+  const text = $('ocrOutput')?.dataset.text;
+  if (!text) return toast('Cần đọc văn bản trước', 'error');
+  navigate('ai');
+  setTimeout(() => {
+    const input = $('chatInput');
+    if (input) {
+      input.value = 'Đây là nội dung từ ảnh của tôi:\n\n' + text.substring(0, 500) + (text.length > 500 ? '...' : '') + '\n\nHãy giúp tôi hiểu nội dung này.';
+      input.focus();
+    }
+  }, 300);
+}
+
+/** Lưu kết quả OCR thành ghi chú */
+async function saveOcrAsNote() {
+  const text = $('ocrOutput')?.dataset.text || $('ocrAiAnswer')?.dataset.text;
+  if (!text) return toast('Không có nội dung để lưu', 'error');
+  try {
+    await apiFetch('/materials', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'OCR - ' + new Date().toLocaleDateString('vi-VN'),
+        content: text,
+        type: 'note'
+      })
+    });
+    toast('💾 Đã lưu vào Tài liệu!');
+  } catch (err) {
+    toast('Lỗi lưu ghi chú', 'error');
+  }
+}
+
+// ── Cập nhật navigate để load OCR ─────────────────────
+const _prevNavigate = navigate;
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  $(`page-${page}`)?.classList.add('active');
+  document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
+  setTimeout(() => {
+    if (page === 'tasks') loadTasks();
+    if (page === 'materials') { loadSubjects(); loadMaterials(); }
+    if (page === 'flashcards') loadFlashcards();
+    if (page === 'stats') loadStats();
+    if (page === 'profile') loadProfile();
+    if (page === 'ai') loadChatHistory();
+    if (page === 'calendar') loadCalendar();
+    if (page === 'quiz') loadQuizList();
+    // OCR không cần load gì — đã sẵn sàng ngay
+  }, 0);
+}
+
+// Re-register nav clicks
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.onclick = () => requestAnimationFrame(() => navigate(item.dataset.page));
+});
+
+// Thêm initOCR vào init
+const _prevInit2 = init;
+async function init() {
+  loadSavedTheme();
+  initParticles();
+  setupFileDropZone();
+  initPWA();
+  initRichEditor();
+  initOCR(); // ← Thêm OCR init
+  const authed = await checkAuth();
+  if (!authed) return;
+  await loadSidebarProfile();
+  loadStats();
+  checkSharedDeck();
+}
+
+document.addEventListener('DOMContentLoaded', init);

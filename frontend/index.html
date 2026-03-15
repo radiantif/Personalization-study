@@ -800,6 +800,120 @@
     </div>
   </div>
 
+  <!-- ── PAGE: OCR ────────────────────────────────────── -->
+  <section class="page" id="page-ocr">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Deep OCR</h1>
+        <p class="page-sub">Trích xuất văn bản từ ảnh bài tập, tin nhắn, ghi chú</p>
+      </div>
+    </div>
+
+    <div class="ocr-layout">
+
+      <!-- Upload Area -->
+      <div class="ocr-upload-card card">
+        <div class="ocr-drop-zone" id="ocrDropZone" onclick="$('ocrFileInput').click()">
+          <div class="ocr-drop-icon">📸</div>
+          <div class="ocr-drop-title">Kéo thả ảnh vào đây</div>
+          <div class="ocr-drop-sub">hoặc click để chọn • PNG, JPG, WebP • Tối đa 10MB</div>
+          <input type="file" id="ocrFileInput" accept="image/*" style="display:none" onchange="handleOcrFile(this.files[0])" />
+        </div>
+
+        <!-- Paste hint -->
+        <div class="ocr-paste-hint">
+          💡 Hoặc nhấn <kbd>Ctrl+V</kbd> để dán ảnh từ clipboard
+        </div>
+
+        <!-- Preview -->
+        <div class="ocr-preview-wrap" id="ocrPreviewWrap" style="display:none">
+          <img id="ocrPreviewImg" class="ocr-preview-img" alt="Preview" />
+          <button class="ocr-clear-btn" onclick="clearOcr()">✕ Xóa</button>
+        </div>
+
+        <!-- Bước 1: Chỉ có nút Đọc văn bản -->
+        <div class="ocr-actions" id="ocrActions" style="display:none">
+          <button class="btn btn-primary" id="ocrReadBtn" onclick="runOCR()">
+            🔍 Đọc văn bản
+          </button>
+        </div>
+
+        <!-- Bước 2: Sau khi đọc xong, hiện nút Giải bài tập (ở result card) -->
+        <!-- Xem phần ocr-result-card bên dưới -->
+      </div>
+
+      <!-- Result Area -->
+      <div class="ocr-result-card card" id="ocrResultCard" style="display:none">
+        <div class="ocr-result-header">
+          <span id="ocrResultTitle">📄 Kết quả</span>
+          <div class="ocr-result-actions">
+            <button class="btn btn-ghost btn-sm" onclick="copyOcrText()">📋 Copy</button>
+            <button class="btn btn-ghost btn-sm" onclick="sendOcrToChat()">💬 Hỏi AI Tutor</button>
+            <button class="btn btn-ghost btn-sm" onclick="saveOcrAsNote()">💾 Lưu ghi chú</button>
+          </div>
+        </div>
+
+        <!-- Nút Giải bài tập — chỉ hiện sau khi OCR xong -->
+        <div id="ocrSolveSection" style="display:none">
+          <button class="btn btn-solve" onclick="toggleSolvePanel()">
+            🧠 Giải bài tập trong ảnh
+          </button>
+          <!-- Panel chọn môn — ẩn cho đến khi bấm nút trên -->
+          <div class="ocr-solve-panel" id="ocrSolvePanel" style="display:none">
+            <div class="osp-title">Chọn môn & cấp độ để AI giải</div>
+            <div class="osp-grid">
+              <div class="osp-group">
+                <label>Môn học</label>
+                <div class="osp-subject-list">
+                  <button class="osp-btn active" data-val="Chung" onclick="selectOcrSubject(this)">🌐 Chung</button>
+                  <button class="osp-btn" data-val="Toán" onclick="selectOcrSubject(this)">📐 Toán</button>
+                  <button class="osp-btn" data-val="Lý" onclick="selectOcrSubject(this)">⚡ Vật Lý</button>
+                  <button class="osp-btn" data-val="Hóa" onclick="selectOcrSubject(this)">🧪 Hóa Học</button>
+                  <button class="osp-btn" data-val="Văn" onclick="selectOcrSubject(this)">📖 Ngữ Văn</button>
+                  <button class="osp-btn" data-val="Sinh" onclick="selectOcrSubject(this)">🔬 Sinh Học</button>
+                </div>
+              </div>
+              <div class="osp-group">
+                <label>Cấp độ</label>
+                <div class="osp-level-list">
+                  <button class="osp-btn" data-val="THCS" onclick="selectOcrLevel(this)">📗 THCS</button>
+                  <button class="osp-btn active" data-val="THPT" onclick="selectOcrLevel(this)">📘 THPT</button>
+                  <button class="osp-btn" data-val="Đại học" onclick="selectOcrLevel(this)">📙 Đại học</button>
+                </div>
+              </div>
+            </div>
+            <button class="btn btn-primary" style="width:100%" onclick="submitOCRAsk()">
+              🚀 Giải ngay
+            </button>
+          </div>
+        </div>
+
+        <!-- Tách phần header để không bị duplicate -->
+        <div style="display:none"><!--close header--></div
+        </div>
+
+        <!-- Loading -->
+        <div class="ocr-loading" id="ocrLoading" style="display:none">
+          <div class="ocr-spinner"></div>
+          <span id="ocrLoadingText">Đang xử lý ảnh...</span>
+        </div>
+
+        <!-- Text result -->
+        <div id="ocrTextResult" style="display:none">
+          <div class="ocr-meta" id="ocrMeta"></div>
+          <pre class="ocr-text-output" id="ocrOutput"></pre>
+        </div>
+
+        <!-- AI Answer result -->
+        <div id="ocrAiResult" style="display:none">
+          <div class="ocr-ai-answer" id="ocrAiAnswer"></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
 </main>
 
 <!-- ── Toast notifications ──────────────────────────────────── -->

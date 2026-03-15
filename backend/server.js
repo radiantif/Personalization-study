@@ -1,15 +1,10 @@
 'use strict';
 require('dotenv').config();
-const fs = require('fs');
-const uploadsDir = require('path').join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-  console.log('✅ Created uploads directory');
-}
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const jwt = require('jsonwebtoken');
+
 const JWT_SECRET = process.env.JWT_SECRET || 'studyflow-jwt-secret-2024';
 
 const app = express();
@@ -61,6 +56,7 @@ app.use('/api/ai',         requireAuth, require('./routes/ai'));
 app.use('/api/chats',      requireAuth, require('./routes/chats'));
 app.use('/api/quiz',       requireAuth, require('./routes/quiz'));
 app.use('/api/calendar',   requireAuth, require('./routes/calendar'));
+app.use('/api/ocr',        requireAuth, require('./routes/ocr'));
 
 app.use(function(req, res) { res.status(404).json({ error: 'Route not found' }); });
 app.use(function(err, req, res, next) { console.error(err.stack); res.status(500).json({ error: err.message }); });
