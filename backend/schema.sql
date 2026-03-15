@@ -1,5 +1,5 @@
 -- =====================================================
--- Study Dashboard — Full Schema
+-- Study Dashboard — Full Schema v2
 -- Chạy toàn bộ file này trong Neon SQL Editor
 -- =====================================================
 
@@ -15,21 +15,14 @@ CREATE TABLE IF NOT EXISTS users (
   level             INT NOT NULL DEFAULT 1,
   exp               INT NOT NULL DEFAULT 0,
   total_study_hours DECIMAL(10,2) DEFAULT 0,
+  streak_days       INT DEFAULT 0,
+  last_study_date   DATE,
   exam_date         TIMESTAMPTZ,
   target_subject    VARCHAR(100),
   last_login        TIMESTAMPTZ DEFAULT NOW(),
   created_at        TIMESTAMPTZ DEFAULT NOW(),
   updated_at        TIMESTAMPTZ DEFAULT NOW()
 );
-
--- ─── Sessions ─────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS user_sessions (
-  sid    VARCHAR NOT NULL COLLATE "default",
-  sess   JSON NOT NULL,
-  expire TIMESTAMP(6) NOT NULL,
-  CONSTRAINT session_pkey PRIMARY KEY (sid) NOT DEFERRABLE INITIALLY IMMEDIATE
-);
-CREATE INDEX IF NOT EXISTS idx_session_expire ON user_sessions(expire);
 
 -- ─── Tasks ────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS tasks (
@@ -57,15 +50,18 @@ CREATE TABLE IF NOT EXISTS subjects (
 
 -- ─── Flashcards ───────────────────────────────────────
 CREATE TABLE IF NOT EXISTS flashcards (
-  id         SERIAL PRIMARY KEY,
-  user_id    INT REFERENCES users(id) ON DELETE CASCADE,
-  question   TEXT NOT NULL,
-  answer     TEXT NOT NULL,
-  subject    VARCHAR(100) DEFAULT 'General',
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  id          SERIAL PRIMARY KEY,
+  user_id     INT REFERENCES users(id) ON DELETE CASCADE,
+  question    TEXT NOT NULL,
+  answer      TEXT NOT NULL,
+  subject     VARCHAR(100) DEFAULT 'General',
+  is_public   BOOLEAN DEFAULT FALSE,
+  share_code  VARCHAR(20) UNIQUE,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_flashcards_user ON flashcards(user_id);
+CREATE INDEX IF NOT EXISTS idx_flashcards_public ON flashcards(is_public);
 
 -- ─── Materials ────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS materials (
@@ -77,9 +73,11 @@ CREATE TABLE IF NOT EXISTS materials (
   file_type     VARCHAR(20) DEFAULT 'note',
   original_name VARCHAR(500),
   content       TEXT,
+  content_html  TEXT,
   created_at    TIMESTAMPTZ DEFAULT NOW(),
   updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS idx_materials_user ON materials(user_id);
 
 -- ─── Study Sessions ───────────────────────────────────
 CREATE TABLE IF NOT EXISTS study_sessions (
@@ -103,3 +101,50 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_chats_user ON chat_sessions(user_id);
+
+-- ─── Calendar Events ──────────────────────────────────
+CREATE TABLE IF NOT EXISTS calendar_events (
+  id          SERIAL PRIMARY KEY,
+  user_id     INT REFERENCES users(id) ON DELETE CASCADE,
+  title       VARCHAR(200) NOT NULL,
+  description TEXT,
+  subject     VARCHAR(100),
+  event_date  DATE NOT NULL,
+  event_time  TIME,
+  type        VARCHAR(30) DEFAULT 'study',
+  color       VARCHAR(20) DEFAULT '#7c6fff',
+  remind_at   TIMESTAMPTZ,
+  completed   BOOLEAN DEFAULT FALSE,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_calendar_user ON calendar_events(user_id);
+CREATE INDEX IF NOT EXISTS idx_calendar_date ON calendar_events(event_date);
+
+-- ─── Quizzes ──────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS quizzes (
+  id         SERIAL PRIMARY KEY,
+  user_id    INT REFERENCES users(id) ON DELETE CASCADE,
+  title      VARCHAR(200) NOT NULL,
+  subject    VARCHAR(100),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS quiz_questions (
+  id            SERIAL PRIMARY KEY,
+  quiz_id       INT REFERENCES quizzes(id) ON DELETE CASCADE,
+  question      TEXT NOT NULL,
+  options       JSONB NOT NULL,
+  correct_index INT NOT NULL,
+  explanation   TEXT
+);
+
+CREATE TABLE IF NOT EXISTS quiz_results (
+  id           SERIAL PRIMARY KEY,
+  quiz_id      INT REFERENCES quizzes(id) ON DELETE CASCADE,
+  user_id      INT REFERENCES users(id) ON DELETE CASCADE,
+  score        INT NOT NULL,
+  total        INT NOT NULL,
+  time_seconds INT DEFAULT 0,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_quiz_user ON quizzes(user_id);

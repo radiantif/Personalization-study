@@ -8,6 +8,15 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Kaisei+Decol:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#7c6fff" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#7c6fff" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 </head>
 <body data-theme="dark">
 
@@ -57,7 +66,21 @@
     <a class="nav-item" data-page="themes">
       <span class="nav-icon">🎨</span><span class="nav-label">Themes</span>
     </a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" onclick="openPomodoro()">
+      <span class="nav-icon">⏱️</span><span class="nav-label">Pomodoro</span>
+    </a>
+    <a class="nav-item" onclick="openCalendar()">
+      <span class="nav-icon">📅</span><span class="nav-label">Lịch học</span>
+    </a>
+    <a class="nav-item" onclick="openAITools()">
+      <span class="nav-icon">🛠️</span><span class="nav-label">AI Tools</span>
+    </a>
   </nav>
+
+  <button class="pwa-install-btn" id="pwaInstallBtn" onclick="installPWA()" style="display:none">
+    <span>📱</span><span>Cài đặt App</span>
+  </button>
 
   <div class="sidebar-timer-mini" id="sidebarTimer">
     <span class="timer-mini-label">Study Timer</span>
@@ -257,9 +280,13 @@
     <div class="page-header">
       <div>
         <h1 class="page-title">Flashcards</h1>
-        <p class="page-sub">Spaced repetition study system</p>
+        <p class="page-sub">Hệ thống học thẻ ghi nhớ</p>
       </div>
-      <button class="btn btn-primary" onclick="openModal('addCardModal')">+ New Card</button>
+      <div style="display:flex;gap:0.5rem">
+        <button class="btn btn-ghost" onclick="openAITools()">🤖 AI tạo thẻ</button>
+        <button class="btn btn-ghost" onclick="shareFlashcardDeck()">🔗 Chia sẻ</button>
+        <button class="btn btn-primary" onclick="openModal('addCardModal')">+ Thẻ mới</button>
+      </div>
     </div>
 
     <div class="fc-subject-filter" id="fcSubjectFilter"></div>
@@ -489,7 +516,7 @@
             <span class="av-opt" onclick="selectAvatar(this)">🌙</span>
             <span class="av-opt" onclick="selectAvatar(this)">🔥</span>
           </div>
-          <button class="btn btn-logout" style="display:none" onclick="logout()">🚪 Đăng xuất</button>
+          <button class="btn btn-logout" onclick="logout()">🚪 Đăng xuất</button>
         </div>
         <div class="profile-info-section">
           <input type="text" id="profileName" class="input-field" placeholder="Your name" />
@@ -597,5 +624,7 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <script src="app.js"></script>
+<script src="features.js"></script>
+<script>document.addEventListener("DOMContentLoaded",()=>{setTimeout(checkDeadlineNotifications,3000);})</script>
 </body>
 </html>

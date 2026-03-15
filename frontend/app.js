@@ -1140,3 +1140,909 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+// ═══════════════════════════════════════════════════════
+// EXTENDED FEATURES
+// ═══════════════════════════════════════════════════════
+
+// ─── PWA Service Worker ───────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(() => console.log('✅ PWA ready'))
+      .catch(() => {});
+  });
+}
+
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Show install button in sidebar
+  const btn = document.getElementById('pwaInstallBtn');
+  if (btn) btn.style.display = 'flex';
+});
+
+async function installPWA() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  if (outcome === 'accepted') toast('StudyFlow đã được cài đặt! 📱');
+  deferredPrompt = null;
+  const btn = document.getElementById('pwaInstallBtn');
+  if (btn) btn.style.display = 'none';
+}
+
+// Request notification permission for deadline alerts
+async function requestNotifPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') toast('✅ Đã bật thông báo nhắc học!');
+  }
+}
+
+function sendNotif(title, body, url = '/') {
+  if (Notification.permission === 'granted') {
+    new Notification(title, { body, icon: '/icon-192.png', data: { url } });
+  }
+}
+
+// ─── POMODORO TIMER ───────────────────────────────────
+let pomo = {
+  mode: 'work', seconds: 25*60, running: false,
+  interval: null, cycles: 0,
+  work: 25, short: 5, long: 15
+};
+
+function openPomodoro() {
+  let modal = $('pomodoroModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.id = 'pomodoroModal';
+    modal.innerHTML = `
+      <div class="modal-content card pomo-card">
+        <div class="modal-header">
+          <h2>⏱️ Pomodoro</h2>
+          <button class="modal-close" onclick="closeModal('pomodoroModal')">✕</button>
+        </div>
+        <div class="pomo-tabs">
+          <button class="pomo-tab active" onclick="setPomoMode('work',this)">🎯 Học</button>
+          <button class="pomo-tab" onclick="setPomoMode('short',this)">☕ Nghỉ ngắn</button>
+          <button class="pomo-tab" onclick="setPomoMode('long',this)">🌙 Nghỉ dài</button>
+        </div>
+        <div class="pomo-ring-wrap">
+          <svg viewBox="0 0 120 120" class="pomo-svg">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+            <circle id="pomoRing" cx="60" cy="60" r="52" fill="none" stroke="var(--accent)"
+              stroke-width="8" stroke-dasharray="326.7" stroke-dashoffset="0"
+              stroke-linecap="round" transform="rotate(-90 60 60)"
+              style="transition:stroke-dashoffset 1s linear,stroke 0.3s"/>
+          </svg>
+          <div class="pomo-center">
+            <div class="pomo-time" id="pomoTime">25:00</div>
+            <div class="pomo-cycles" id="pomoInfo">🍅 ×0</div>
+          </div>
+        </div>
+        <input type="text" id="pomoSubject" class="input-field" placeholder="Môn học (tuỳ chọn)" style="margin:0.5rem 0"/>
+        <div class="pomo-btns">
+          <button class="btn btn-ghost" onclick="resetPomo()">↩</button>
+          <button class="btn btn-primary" id="pomoBtn" onclick="togglePomo()">▶ Bắt đầu</button>
+          <button class="btn btn-ghost" onclick="skipPomo()">⏭</button>
+        </div>
+        <div class="pomo-settings-row">
+          <label>Học: <input type="number" id="pomoW" value="25" min="1" max="99" style="width:45px" class="input-field" onchange="updatePomoDur()"/> phút</label>
+          <label>Ngắn: <input type="number" id="pomoS" value="5" min="1" max="30" style="width:45px" class="input-field" onchange="updatePomoDur()"/> phút</label>
+          <label>Dài: <input type="number" id="pomoL" value="15" min="1" max="60" style="width:45px" class="input-field" onchange="updatePomoDur()"/> phút</label>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+  }
+  modal.classList.add('open');
+  renderPomo();
+}
+
+function renderPomo() {
+  const total = pomo.mode==='work' ? pomo.work*60 : pomo.mode==='short' ? pomo.short*60 : pomo.long*60;
+  const pct = pomo.seconds / total;
+  const c = 326.7;
+  const ring = $('pomoRing');
+  if (ring) {
+    ring.style.strokeDashoffset = c * (1-pct);
+    ring.style.stroke = pomo.mode==='work' ? 'var(--accent)' : pomo.mode==='short' ? 'var(--accent3)' : 'var(--accent2)';
+  }
+  const t = $('pomoTime'); if (t) t.textContent = `${pad(Math.floor(pomo.seconds/60))}:${pad(pomo.seconds%60)}`;
+  const info = $('pomoInfo'); if (info) info.textContent = `🍅 ×${pomo.cycles}`;
+  const btn = $('pomoBtn'); if (btn) btn.textContent = pomo.running ? '⏸ Dừng' : '▶ Bắt đầu';
+}
+
+function togglePomo() {
+  if (pomo.running) { clearInterval(pomo.interval); pomo.running = false; }
+  else {
+    requestNotifPermission();
+    pomo.running = true;
+    pomo.interval = setInterval(async () => {
+      pomo.seconds--;
+      renderPomo();
+      if (pomo.seconds <= 0) await finishPomo();
+    }, 1000);
+  }
+  renderPomo();
+}
+
+async function finishPomo() {
+  clearInterval(pomo.interval); pomo.running = false;
+  if (pomo.mode === 'work') {
+    pomo.cycles++;
+    const subj = $('pomoSubject')?.value || '';
+    try { await apiFetch('/sessions', { method:'POST', body:JSON.stringify({ subject:subj, duration_minutes:pomo.work }) }); } catch {}
+    toast(`🍅 Xong! +${pomo.work} phút đã lưu`);
+    sendNotif('StudyFlow — Nghỉ giải lao!', `Bạn đã học ${pomo.work} phút. Hãy nghỉ ngơi!`);
+    setPomoMode(pomo.cycles%4===0 ? 'long' : 'short');
+    setTimeout(togglePomo, 800);
+  } else {
+    toast('☕ Hết giờ nghỉ! Tiếp tục học nào 💪');
+    sendNotif('StudyFlow — Bắt đầu học!', 'Hết giờ nghỉ rồi. Cố lên!');
+    setPomoMode('work');
+    setTimeout(togglePomo, 800);
+  }
+}
+
+function setPomoMode(mode, btn) {
+  pomo.mode = mode;
+  pomo.seconds = mode==='work' ? pomo.work*60 : mode==='short' ? pomo.short*60 : pomo.long*60;
+  pomo.running = false; clearInterval(pomo.interval);
+  document.querySelectorAll('.pomo-tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  else {
+    const idx = {'work':0,'short':1,'long':2}[mode];
+    document.querySelectorAll('.pomo-tab')[idx]?.classList.add('active');
+  }
+  renderPomo();
+}
+
+function resetPomo() { clearInterval(pomo.interval); pomo.running=false; pomo.seconds=pomo.mode==='work'?pomo.work*60:pomo.mode==='short'?pomo.short*60:pomo.long*60; renderPomo(); }
+function skipPomo() { pomo.seconds=0; finishPomo(); }
+function updatePomoDur() {
+  pomo.work=parseInt($('pomoW')?.value)||25; pomo.short=parseInt($('pomoS')?.value)||5; pomo.long=parseInt($('pomoL')?.value)||15;
+  resetPomo();
+}
+
+// ─── CALENDAR / DEADLINE VIEW ─────────────────────────
+function openCalendar() {
+  let modal = $('calendarModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.id = 'calendarModal';
+    modal.innerHTML = `
+      <div class="modal-content card" style="max-width:600px">
+        <div class="modal-header">
+          <h2>📅 Lịch học & Deadline</h2>
+          <button class="modal-close" onclick="closeModal('calendarModal')">✕</button>
+        </div>
+        <div class="cal-nav">
+          <button class="btn btn-ghost" onclick="changeCalMonth(-1)">←</button>
+          <span id="calTitle" style="font-family:var(--font-display);font-size:1.1rem"></span>
+          <button class="btn btn-ghost" onclick="changeCalMonth(1)">→</button>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+        <div class="cal-upcoming" id="calUpcoming"></div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+  }
+  modal.classList.add('open');
+  renderCalendar();
+}
+
+let calDate = new Date();
+function changeCalMonth(delta) { calDate.setMonth(calDate.getMonth()+delta); renderCalendar(); }
+
+async function renderCalendar() {
+  const title = $('calTitle');
+  const grid = $('calGrid');
+  const upcoming = $('calUpcoming');
+  if (!grid) return;
+
+  const months = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
+  if (title) title.textContent = `${months[calDate.getMonth()]} ${calDate.getFullYear()}`;
+
+  // Get tasks with deadlines
+  let deadlines = {};
+  try {
+    const all = tasks.length ? tasks : await apiFetch('/tasks');
+    all.forEach(t => { if (t.deadline) { const d = t.deadline.split('T')[0]; if (!deadlines[d]) deadlines[d] = []; deadlines[d].push(t); }});
+  } catch {}
+
+  const year = calDate.getFullYear(), month = calDate.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const today = new Date().toISOString().split('T')[0];
+
+  const days = ['CN','T2','T3','T4','T5','T6','T7'];
+  let html = days.map(d => `<div class="cal-day-header">${d}</div>`).join('');
+
+  for (let i=0; i<firstDay; i++) html += '<div class="cal-day empty"></div>';
+  for (let d=1; d<=daysInMonth; d++) {
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = dateStr === today;
+    const hasTasks = deadlines[dateStr];
+    html += `<div class="cal-day ${isToday?'today':''} ${hasTasks?'has-task':''}" onclick="showDayTasks('${dateStr}')">
+      <span>${d}</span>
+      ${hasTasks ? `<div class="cal-dot">${hasTasks.length}</div>` : ''}
+    </div>`;
+  }
+  grid.innerHTML = html;
+
+  // Upcoming deadlines
+  const upcomingTasks = Object.entries(deadlines)
+    .filter(([d]) => d >= today)
+    .sort(([a],[b]) => a.localeCompare(b))
+    .slice(0, 5);
+
+  if (upcoming) {
+    if (!upcomingTasks.length) { upcoming.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:1rem;font-size:0.82rem">Không có deadline sắp tới</div>'; return; }
+    upcoming.innerHTML = '<div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem">Deadline sắp tới</div>' +
+      upcomingTasks.map(([date, tasks]) =>
+        tasks.map(t => `<div class="cal-upcoming-item ${t.completed?'done':''}">
+          <span class="cui-date">${formatDate(date)}</span>
+          <span class="cui-title">${escHtml(t.title)}</span>
+          ${t.subject ? `<span class="task-tag">${escHtml(t.subject)}</span>` : ''}
+        </div>`).join('')
+      ).join('');
+  }
+}
+
+function showDayTasks(dateStr) {
+  const dayTasks = tasks.filter(t => t.deadline && t.deadline.startsWith(dateStr));
+  if (!dayTasks.length) return;
+  const lines = dayTasks.map(t => `${t.completed ? '✅' : '⬜'} ${t.title}`).join('\n');
+  alert(`📅 ${formatDate(dateStr)}\n\n${lines}`);
+}
+
+// ─── AI TOOLS ─────────────────────────────────────────
+function openAITools() {
+  let modal = $('aiToolsModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.id = 'aiToolsModal';
+    modal.innerHTML = `
+      <div class="modal-content card" style="max-width:560px">
+        <div class="modal-header">
+          <h2>🤖 AI Tools</h2>
+          <button class="modal-close" onclick="closeModal('aiToolsModal')">✕</button>
+        </div>
+        <div class="ai-tools-tabs">
+          <button class="ait-tab active" onclick="setAITab('flashcard',this)">🃏 Tạo Flashcard</button>
+          <button class="ait-tab" onclick="setAITab('summary',this)">📄 Tóm tắt</button>
+          <button class="ait-tab" onclick="setAITab('quiz',this)">🧠 Quiz</button>
+        </div>
+
+        <div id="ait-flashcard">
+          <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.5rem">Nhập văn bản → AI tự tạo flashcard</p>
+          <textarea id="aitFCText" class="input-field textarea" placeholder="Dán văn bản, ghi chú, hoặc nội dung sách vào đây..." rows="5"></textarea>
+          <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.5rem">
+            <input type="text" id="aitFCSubject" class="input-field" placeholder="Môn học" style="flex:1"/>
+            <select id="aitFCCount" class="input-field" style="width:80px">
+              <option value="3">3 thẻ</option>
+              <option value="5" selected>5 thẻ</option>
+              <option value="10">10 thẻ</option>
+            </select>
+          </div>
+          <div id="aitFCPreview" style="margin-top:0.8rem"></div>
+          <div class="modal-footer" style="margin-top:0.5rem">
+            <button class="btn btn-ghost" onclick="closeModal('aiToolsModal')">Huỷ</button>
+            <button class="btn btn-primary" onclick="genFlashcards()">✨ Tạo Flashcard</button>
+          </div>
+        </div>
+
+        <div id="ait-summary" style="display:none">
+          <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.5rem">AI tóm tắt nội dung thành điểm chính</p>
+          <textarea id="aitSumText" class="input-field textarea" placeholder="Dán nội dung cần tóm tắt..." rows="6"></textarea>
+          <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
+            <button class="btn btn-ghost ${''}" onclick="setSumStyle('bullet')" id="sumBulletBtn" style="flex:1">• Bullet points</button>
+            <button class="btn btn-ghost" onclick="setSumStyle('paragraph')" id="sumParaBtn" style="flex:1">¶ Đoạn văn</button>
+          </div>
+          <div id="aitSumResult" style="margin-top:0.8rem"></div>
+          <div class="modal-footer" style="margin-top:0.5rem">
+            <button class="btn btn-ghost" onclick="closeModal('aiToolsModal')">Huỷ</button>
+            <button class="btn btn-primary" onclick="genSummary()">✨ Tóm tắt</button>
+          </div>
+        </div>
+
+        <div id="ait-quiz" style="display:none">
+          <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.5rem">AI tạo quiz trắc nghiệm từ nội dung</p>
+          <textarea id="aitQuizText" class="input-field textarea" placeholder="Dán nội dung để tạo câu hỏi..." rows="4"></textarea>
+          <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.5rem">
+            <input type="text" id="aitQuizSubject" class="input-field" placeholder="Môn học" style="flex:1"/>
+            <select id="aitQuizCount" class="input-field" style="width:80px">
+              <option value="3">3 câu</option>
+              <option value="5" selected>5 câu</option>
+              <option value="10">10 câu</option>
+            </select>
+          </div>
+          <div id="aitQuizResult" style="margin-top:0.8rem;max-height:300px;overflow-y:auto"></div>
+          <div class="modal-footer" style="margin-top:0.5rem">
+            <button class="btn btn-ghost" onclick="closeModal('aiToolsModal')">Huỷ</button>
+            <button class="btn btn-primary" onclick="genQuiz()">✨ Tạo Quiz</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+  }
+  modal.classList.add('open');
+}
+
+let aiTab = 'flashcard', sumStyle = 'bullet';
+function setAITab(tab, btn) {
+  aiTab = tab;
+  document.querySelectorAll('.ait-tab').forEach(t=>t.classList.remove('active'));
+  btn?.classList.add('active');
+  ['flashcard','summary','quiz'].forEach(t => {
+    const el = $('ait-'+t); if (el) el.style.display = t===tab?'block':'none';
+  });
+}
+function setSumStyle(s) { sumStyle=s; $('sumBulletBtn')?.classList.toggle('btn-primary',s==='bullet'); $('sumParaBtn')?.classList.toggle('btn-primary',s==='paragraph'); }
+
+async function genFlashcards() {
+  const text = $('aitFCText')?.value.trim();
+  const subject = $('aitFCSubject')?.value.trim() || 'Chung';
+  const count = parseInt($('aitFCCount')?.value) || 5;
+  if (!text) return toast('Vui lòng nhập văn bản', 'error');
+
+  const preview = $('aitFCPreview');
+  if (preview) preview.innerHTML = '<div class="loading-state" style="padding:0.8rem">🤖 Đang tạo flashcard...</div>';
+
+  try {
+    const data = await apiFetch('/ai/generate-flashcards', {
+      method: 'POST', body: JSON.stringify({ text, subject, count })
+    });
+    const cards = data.cards;
+    if (!cards?.length) return toast('Không tạo được flashcard', 'error');
+
+    if (preview) {
+      preview.innerHTML = `<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.5rem">Xem trước ${cards.length} thẻ:</div>` +
+        cards.map((c,i) => `<div class="fc-preview-item"><span class="fc-pre-num">${i+1}</span><div><div style="font-weight:600;font-size:0.82rem">Q: ${escHtml(c.question)}</div><div style="color:var(--text-muted);font-size:0.78rem">A: ${escHtml(c.answer)}</div></div></div>`).join('');
+    }
+
+    // Save button
+    const footer = preview.nextElementSibling;
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn btn-primary';
+    saveBtn.style.marginTop = '0.5rem';
+    saveBtn.textContent = `💾 Lưu ${cards.length} thẻ vào bộ sưu tập`;
+    saveBtn.onclick = async () => {
+      try {
+        await apiFetch('/flashcards/bulk', { method:'POST', body:JSON.stringify({ cards, subject }) });
+        toast(`Đã lưu ${cards.length} flashcard! 🎉`);
+        closeModal('aiToolsModal');
+        if (document.getElementById('page-flashcards').classList.contains('active')) loadFlashcards();
+      } catch (err) { toast(err.message, 'error'); }
+    };
+    if (preview) preview.appendChild(saveBtn);
+  } catch (err) { toast(err.message, 'error'); if (preview) preview.innerHTML=''; }
+}
+
+async function genSummary() {
+  const text = $('aitSumText')?.value.trim();
+  if (!text) return toast('Vui lòng nhập nội dung', 'error');
+  const result = $('aitSumResult');
+  if (result) result.innerHTML = '<div class="loading-state" style="padding:0.8rem">🤖 Đang tóm tắt...</div>';
+  try {
+    const data = await apiFetch('/ai/summarize', { method:'POST', body:JSON.stringify({ text, style: sumStyle }) });
+    if (result) result.innerHTML = `<div class="ai-summary-result">${formatAIResponse(data.summary)}<br><button class="btn btn-ghost" style="margin-top:0.5rem;font-size:0.75rem" onclick="saveAsNote(this)">📝 Lưu thành ghi chú</button></div>`;
+    result._summaryText = data.summary;
+  } catch (err) { toast(err.message,'error'); if (result) result.innerHTML=''; }
+}
+
+async function genQuiz() {
+  const text = $('aitQuizText')?.value.trim();
+  const subject = $('aitQuizSubject')?.value.trim() || 'Chung';
+  const count = parseInt($('aitQuizCount')?.value) || 5;
+  if (!text) return toast('Vui lòng nhập nội dung', 'error');
+  const result = $('aitQuizResult');
+  if (result) result.innerHTML = '<div class="loading-state" style="padding:0.8rem">🤖 Đang tạo quiz...</div>';
+  try {
+    const data = await apiFetch('/ai/generate-quiz', { method:'POST', body:JSON.stringify({ text, subject, count }) });
+    renderQuiz(data.questions, result);
+  } catch (err) { toast(err.message,'error'); if (result) result.innerHTML=''; }
+}
+
+let quizAnswers = {};
+function renderQuiz(questions, container) {
+  quizAnswers = {};
+  container.innerHTML = questions.map((q,qi) => `
+    <div class="quiz-item" id="quiz-${qi}">
+      <div class="quiz-q"><span class="quiz-num">${qi+1}</span>${escHtml(q.question)}</div>
+      <div class="quiz-opts">
+        ${q.options.map((o,oi) => `<button class="quiz-opt" onclick="answerQuiz(${qi},${oi},${q.correct},'${escAttr(q.explanation||'')}')">${escHtml(o)}</button>`).join('')}
+      </div>
+    </div>`).join('') +
+    `<button class="btn btn-primary" style="width:100%;margin-top:1rem" onclick="scoreQuiz(${questions.length})">📊 Xem kết quả</button>`;
+}
+
+function answerQuiz(qi, oi, correct, explanation) {
+  quizAnswers[qi] = oi;
+  const item = $(`quiz-${qi}`);
+  if (!item) return;
+  item.querySelectorAll('.quiz-opt').forEach((btn, i) => {
+    btn.disabled = true;
+    if (i === correct) btn.classList.add('correct');
+    else if (i === oi && oi !== correct) btn.classList.add('wrong');
+  });
+  if (explanation) {
+    const exp = document.createElement('div');
+    exp.className = 'quiz-explanation';
+    exp.textContent = '💡 ' + explanation;
+    item.appendChild(exp);
+  }
+}
+
+function scoreQuiz(total) {
+  const correct = Object.values(quizAnswers).filter((a,i) => a === parseInt(Object.keys(quizAnswers)[i])).length;
+  const score = Object.entries(quizAnswers).filter(([qi, ans]) => {
+    const item = $(`quiz-${qi}`);
+    return item?.querySelector('.quiz-opt.correct')?.classList.contains('quiz-opt');
+  }).length;
+  toast(`📊 Kết quả: ${Object.keys(quizAnswers).length}/${total} câu đã trả lời`);
+}
+
+// ─── FLASHCARD SHARING ────────────────────────────────
+async function shareFlashcardDeck(subject) {
+  if (!subject) { subject = prompt('Nhập tên môn học muốn chia sẻ:'); if (!subject) return; }
+  try {
+    const data = await apiFetch('/flashcards/share', { method:'POST', body:JSON.stringify({ subject }) });
+    const url = data.shareUrl;
+    // Copy to clipboard
+    navigator.clipboard?.writeText(url).then(() => toast('📋 Đã copy link chia sẻ!'));
+    prompt('Link chia sẻ bộ thẻ:', url);
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+// ─── DEADLINE NOTIFICATIONS CHECK ────────────────────
+function checkDeadlineNotifications() {
+  if (!tasks.length) return;
+  const now = new Date();
+  const tomorrow = new Date(now); tomorrow.setDate(now.getDate()+1);
+  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+  tasks.filter(t => !t.completed && t.deadline).forEach(t => {
+    const dl = new Date(t.deadline);
+    const daysLeft = Math.ceil((dl-now) / 86400000);
+    if (daysLeft === 1) {
+      sendNotif(`⚠️ Deadline ngày mai!`, `Task: ${t.title}`, '/');
+    } else if (daysLeft === 0) {
+      sendNotif(`🚨 Deadline hôm nay!`, `Task: ${t.title}`, '/');
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// NEW FEATURES v2
+// ═══════════════════════════════════════════════════════
+
+// ─── PWA Setup ────────────────────────────────────────
+function initPWA() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+      .then(() => console.log('✅ Service Worker registered'))
+      .catch(err => console.warn('SW error:', err));
+  }
+  // Install prompt
+  let deferredPrompt;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    showInstallBanner(deferredPrompt);
+  });
+}
+
+function showInstallBanner(prompt) {
+  const banner = document.createElement('div');
+  banner.id = 'installBanner';
+  banner.style.cssText = 'position:fixed;bottom:80px;right:20px;z-index:9999;background:var(--card-bg);border:1px solid var(--accent);border-radius:16px;padding:1rem 1.2rem;display:flex;align-items:center;gap:0.8rem;box-shadow:0 8px 30px rgba(0,0,0,0.3);backdrop-filter:blur(12px);animation:slideInRight 0.3s ease;';
+  banner.innerHTML = `<span style="font-size:1.5rem">📱</span><div><div style="font-weight:700;font-size:0.85rem">Cài StudyFlow</div><div style="font-size:0.72rem;color:var(--text-muted)">Dùng như app trên điện thoại</div></div><button onclick="installApp()" style="background:var(--accent);color:white;border:none;border-radius:8px;padding:0.4rem 0.8rem;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit">Cài</button><button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem">✕</button>`;
+  document.body.appendChild(banner);
+  window._installPrompt = prompt;
+}
+
+function installApp() {
+  if (window._installPrompt) { window._installPrompt.prompt(); document.getElementById('installBanner')?.remove(); }
+}
+
+// ─── CALENDAR ─────────────────────────────────────────
+let calendarDate = new Date();
+let calendarEvents = [];
+
+async function loadCalendar() {
+  const month = calendarDate.getMonth() + 1;
+  const year = calendarDate.getFullYear();
+  try {
+    calendarEvents = await apiFetch(`/calendar?month=${month}&year=${year}`);
+    renderCalendar();
+    renderUpcoming();
+  } catch { renderCalendar(); }
+}
+
+function renderCalendar() {
+  const grid = $('calendarGrid');
+  if (!grid) return;
+  const year = calendarDate.getFullYear();
+  const month = calendarDate.getMonth();
+  $('calMonthLabel').textContent = calendarDate.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' });
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = new Date();
+
+  let html = '';
+  // Day headers
+  ['CN','T2','T3','T4','T5','T6','T7'].forEach(d => { html += `<div class="cal-header-cell">${d}</div>`; });
+  // Empty cells before first day
+  for (let i = 0; i < firstDay; i++) html += '<div class="cal-cell empty"></div>';
+  // Days
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dayEvents = calendarEvents.filter(e => e.event_date && e.event_date.startsWith(dateStr));
+    const isToday = today.getDate()===d && today.getMonth()===month && today.getFullYear()===year;
+    html += `<div class="cal-cell ${isToday?'today':''}" onclick="openAddEventModal('${dateStr}')">
+      <span class="cal-day-num">${d}</span>
+      <div class="cal-events-dots">
+        ${dayEvents.slice(0,3).map(e=>`<div class="cal-dot" style="background:${e.color||'var(--accent)'}" title="${escHtml(e.title)}"></div>`).join('')}
+      </div>
+    </div>`;
+  }
+  grid.innerHTML = html;
+}
+
+async function renderUpcoming() {
+  const list = $('upcomingList');
+  if (!list) return;
+  try {
+    const upcoming = await apiFetch('/calendar/upcoming');
+    if (!upcoming.length) { list.innerHTML = '<div style="color:var(--text-muted);font-size:0.8rem;padding:0.5rem">Không có sự kiện nào trong 7 ngày tới</div>'; return; }
+    list.innerHTML = upcoming.map(e => `
+      <div class="upcoming-item" style="border-left:3px solid ${e.color||'var(--accent)'}">
+        <div class="ui-date">${new Date(e.event_date).toLocaleDateString('vi-VN',{weekday:'short',day:'numeric',month:'short'})}</div>
+        <div class="ui-title">${escHtml(e.title)}</div>
+        ${e.subject ? `<div class="ui-subject">${escHtml(e.subject)}</div>` : ''}
+        <button onclick="deleteEvent(${e.id})" class="ui-delete">✕</button>
+      </div>`).join('');
+  } catch {}
+}
+
+function prevMonth() { calendarDate.setMonth(calendarDate.getMonth()-1); loadCalendar(); }
+function nextMonth() { calendarDate.setMonth(calendarDate.getMonth()+1); loadCalendar(); }
+
+function openAddEventModal(date) {
+  $('eventDate').value = date || new Date().toISOString().split('T')[0];
+  openModal('addEventModal');
+}
+
+async function addEvent() {
+  const title = $('eventTitle').value.trim();
+  const event_date = $('eventDate').value;
+  if (!title || !event_date) return toast('Cần tiêu đề và ngày', 'error');
+  try {
+    await apiFetch('/calendar', { method:'POST', body:JSON.stringify({
+      title, event_date, event_time: $('eventTime').value || null,
+      subject: $('eventSubject').value.trim(), type: $('eventType').value,
+      color: $('eventColor').value, description: $('eventDesc').value.trim()
+    })});
+    closeModal('addEventModal');
+    $('eventTitle').value=''; $('eventDesc').value=''; $('eventSubject').value='';
+    loadCalendar(); toast('Đã thêm sự kiện!');
+  } catch (err) { toast(err.message,'error'); }
+}
+
+async function deleteEvent(id) {
+  try { await apiFetch(`/calendar/${id}`,{method:'DELETE'}); loadCalendar(); toast('Đã xóa'); } catch {}
+}
+
+// ─── QUIZ ─────────────────────────────────────────────
+async function loadQuizList() {
+  const list = $('quizList');
+  if (!list) return;
+  list.innerHTML = '<div class="loading-state">Đang tải...</div>';
+  try {
+    const quizzes = await apiFetch('/quiz');
+    if (!quizzes.length) { list.innerHTML = `<div class="empty-state"><div class="es-icon">🧠</div><div class="es-text">Chưa có quiz nào. Tạo quiz với AI!</div></div>`; return; }
+    list.innerHTML = quizzes.map(q => `
+      <div class="quiz-card card" onclick="startQuiz(${q.id})">
+        <div class="qc-icon">🧠</div>
+        <div class="qc-info">
+          <div class="qc-title">${escHtml(q.title)}</div>
+          <div class="qc-meta">${q.subject||'Chung'} · ${q.question_count||0} câu</div>
+          ${q.last_score!=null?`<div class="qc-score">Lần trước: ${q.last_score}/${q.last_total}</div>`:''}
+        </div>
+        <button onclick="event.stopPropagation();deleteQuiz(${q.id})" class="mat-delete" style="opacity:1">✕</button>
+      </div>`).join('');
+  } catch { list.innerHTML = '<div class="loading-state">Lỗi tải quiz.</div>'; }
+}
+
+async function generateQuiz() {
+  const topic = $('quizTopic').value.trim();
+  const subject = $('quizSubject').value.trim();
+  const count = parseInt($('quizCount').value) || 5;
+  if (!topic) return toast('Nhập chủ đề quiz', 'error');
+  const btn = $('generateQuizBtn');
+  btn.disabled = true; btn.textContent = '⏳ Đang tạo...';
+  try {
+    await apiFetch('/quiz/generate', { method:'POST', body:JSON.stringify({ topic, subject, count }) });
+    closeModal('createQuizModal');
+    $('quizTopic').value='';
+    loadQuizList();
+    toast('Đã tạo quiz! 🧠');
+  } catch (err) { toast(err.message,'error'); }
+  btn.disabled = false; btn.textContent = '✨ Tạo Quiz với AI';
+}
+
+async function startQuiz(id) {
+  try {
+    currentQuiz = await apiFetch('/quiz/'+id);
+    quizAnswers = new Array(currentQuiz.questions.length).fill(null);
+    quizStartTime = Date.now();
+    renderQuizPlay();
+  } catch (err) { toast(err.message,'error'); }
+}
+
+function renderQuizPlay() {
+  if (!currentQuiz) return;
+  $('quizList').style.display = 'none';
+  $('quizCreateBar').style.display = 'none';
+  $('quizPlayArea').style.display = 'block';
+  const q = currentQuiz;
+  $('quizPlayArea').innerHTML = `
+    <div class="quiz-header">
+      <button class="btn btn-ghost" onclick="exitQuiz()">← Quay lại</button>
+      <h2 class="quiz-title-play">${escHtml(q.title)}</h2>
+      <div class="quiz-progress-text" id="quizProgress">0 / ${q.questions.length}</div>
+    </div>
+    <div class="quiz-questions" id="quizQuestions">
+      ${q.questions.map((qq, i) => `
+        <div class="quiz-q-card card" id="qq${i}">
+          <div class="qq-num">Câu ${i+1}</div>
+          <div class="qq-text">${escHtml(qq.question)}</div>
+          <div class="qq-options">
+            ${JSON.parse(qq.options||'[]').map((opt, j) => `
+              <button class="qq-opt" onclick="selectAnswer(${i},${j},this)">${escHtml(opt)}</button>
+            `).join('')}
+          </div>
+          <div class="qq-explanation" id="exp${i}" style="display:none">${escHtml(qq.explanation||'')}</div>
+        </div>`).join('')}
+    </div>
+    <div class="quiz-submit-bar">
+      <button class="btn btn-primary" onclick="submitQuiz()">Nộp bài ✓</button>
+    </div>`;
+}
+
+function selectAnswer(qIdx, optIdx, btn) {
+  quizAnswers[qIdx] = optIdx;
+  const card = document.getElementById('qq'+qIdx);
+  card.querySelectorAll('.qq-opt').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  const answered = quizAnswers.filter(a => a !== null).length;
+  $('quizProgress').textContent = `${answered} / ${currentQuiz.questions.length}`;
+}
+
+async function submitQuiz() {
+  const unanswered = quizAnswers.filter(a => a === null).length;
+  if (unanswered > 0 && !confirm(`Còn ${unanswered} câu chưa trả lời. Nộp bài?`)) return;
+
+  let score = 0;
+  currentQuiz.questions.forEach((q, i) => {
+    const card = document.getElementById('qq'+i);
+    const opts = card.querySelectorAll('.qq-opt');
+    const correct = q.correct_index;
+    if (quizAnswers[i] === correct) { score++; opts[correct]?.classList.add('correct'); }
+    else {
+      if (quizAnswers[i] !== null) opts[quizAnswers[i]]?.classList.add('wrong');
+      opts[correct]?.classList.add('correct');
+    }
+    opts.forEach(b => b.disabled = true);
+    const expEl = document.getElementById('exp'+i);
+    if (expEl && q.explanation) { expEl.style.display = 'block'; }
+  });
+
+  const timeSec = Math.floor((Date.now() - quizStartTime) / 1000);
+  const pct = Math.round((score / currentQuiz.questions.length) * 100);
+  const emoji = pct >= 80 ? '🎉' : pct >= 60 ? '👍' : '📚';
+
+  const bar = document.querySelector('.quiz-submit-bar');
+  bar.innerHTML = `<div class="quiz-result-banner">
+    ${emoji} Kết quả: <strong>${score}/${currentQuiz.questions.length}</strong> (${pct}%) · ${Math.floor(timeSec/60)}p ${timeSec%60}s
+    <button class="btn btn-ghost" onclick="exitQuiz()" style="margin-left:1rem">Xem lại</button>
+  </div>`;
+
+  try { await apiFetch(`/quiz/${currentQuiz.id}/result`, { method:'POST', body:JSON.stringify({ score, total:currentQuiz.questions.length, time_seconds:timeSec }) }); } catch {}
+}
+
+function exitQuiz() {
+  currentQuiz = null; quizAnswers = [];
+  $('quizPlayArea').style.display = 'none';
+  $('quizList').style.display = 'block';
+  $('quizCreateBar').style.display = 'flex';
+  loadQuizList();
+}
+
+async function deleteQuiz(id) {
+  try { await apiFetch(`/quiz/${id}`,{method:'DELETE'}); loadQuizList(); toast('Đã xóa quiz'); } catch {}
+}
+
+// ─── AI GENERATE FLASHCARDS ───────────────────────────
+async function generateFlashcardsFromText() {
+  const text = $('aiFlashText').value.trim();
+  const subject = $('aiFlashSubject').value.trim() || 'Chung';
+  const count = parseInt($('aiFlashCount').value) || 8;
+  if (!text || text.length < 50) return toast('Nhập ít nhất 50 ký tự văn bản', 'error');
+
+  const btn = $('genFlashBtn');
+  btn.disabled = true; btn.textContent = '⏳ Đang tạo...';
+  try {
+    const data = await apiFetch('/ai/generate-flashcards', { method:'POST', body:JSON.stringify({ text, subject, count }) });
+    if (!data.flashcards?.length) return toast('Không tạo được flashcard', 'error');
+    // Bulk save
+    await apiFetch('/flashcards/bulk', { method:'POST', body:JSON.stringify({ flashcards: data.flashcards, subject }) });
+    closeModal('aiFlashModal');
+    $('aiFlashText').value='';
+    loadFlashcards();
+    toast(`Đã tạo ${data.flashcards.length} flashcard! 🃏 +5 EXP`);
+    apiFetch('/profile/exp',{method:'POST',body:JSON.stringify({amount:5})});
+  } catch (err) { toast(err.message,'error'); }
+  btn.disabled = false; btn.textContent = '✨ Tạo Flashcard';
+}
+
+// ─── AI SUMMARIZE ─────────────────────────────────────
+async function summarizeMaterial(id, title, content) {
+  if (!content || content.length < 100) return toast('Tài liệu quá ngắn để tóm tắt', 'error');
+  const btn = document.getElementById('sumBtn'+id);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  try {
+    const data = await apiFetch('/ai/summarize', { method:'POST', body:JSON.stringify({ text:content, title }) });
+    showSummaryModal(title, data);
+  } catch (err) { toast(err.message,'error'); }
+  if (btn) { btn.disabled = false; btn.textContent = '🤖'; }
+}
+
+function showSummaryModal(title, data) {
+  const modal = $('summaryModal');
+  $('summaryModalTitle').textContent = `📄 Tóm tắt: ${title}`;
+  $('summaryContent').innerHTML = `
+    <div class="summary-section">
+      <h4>📋 Tổng quan</h4>
+      <p>${escHtml(data.summary||'')}</p>
+    </div>
+    <div class="summary-section">
+      <h4>🎯 Điểm chính</h4>
+      <ul>${(data.key_points||[]).map(p=>`<li>${escHtml(p)}</li>`).join('')}</ul>
+    </div>
+    <div class="summary-section">
+      <h4>🏷️ Từ khóa</h4>
+      <div class="keyword-chips">${(data.keywords||[]).map(k=>`<span class="keyword-chip">${escHtml(k)}</span>`).join('')}</div>
+    </div>
+    <div class="summary-difficulty">Độ khó: <strong>${escHtml(data.difficulty||'')}</strong></div>`;
+  modal.classList.add('open');
+}
+
+// ─── FLASHCARD SHARE ──────────────────────────────────
+async function shareFlashcard(id) {
+  try {
+    const fc = await apiFetch(`/flashcards/${id}/share`, { method:'POST' });
+    if (fc.is_public && fc.share_code) {
+      const url = `${window.location.origin}/?shared=${fc.share_code}`;
+      navigator.clipboard?.writeText(url);
+      toast(`✅ Đã chia sẻ! Link đã copy: ...?shared=${fc.share_code}`);
+    } else {
+      toast('Đã tắt chia sẻ');
+    }
+    loadFlashcards();
+  } catch (err) { toast(err.message,'error'); }
+}
+
+// Check for shared deck on load
+async function checkSharedDeck() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('shared');
+  if (!code) return;
+  try {
+    const cards = await apiFetch(`/flashcards/shared/${code}`);
+    if (cards.length) {
+      const creator = cards[0].creator_name;
+      if (confirm(`📚 ${creator} chia sẻ ${cards.length} flashcard. Thêm vào bộ thẻ của bạn?`)) {
+        await apiFetch('/flashcards/bulk', { method:'POST', body:JSON.stringify({ flashcards: cards, subject: cards[0].subject }) });
+        toast(`Đã thêm ${cards.length} flashcard!`);
+        navigate('flashcards');
+      }
+    }
+  } catch {}
+  window.history.replaceState({}, '', '/');
+}
+
+// ─── RICH TEXT EDITOR ─────────────────────────────────
+function initRichEditor() {
+  const editor = $('richEditor');
+  if (!editor) return;
+  editor.addEventListener('keydown', function(e) {
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key==='b'){e.preventDefault();document.execCommand('bold');}
+      if (e.key==='i'){e.preventDefault();document.execCommand('italic');}
+      if (e.key==='u'){e.preventDefault();document.execCommand('underline');}
+    }
+  });
+}
+
+function formatText(cmd, value) {
+  document.execCommand(cmd, false, value || null);
+  $('richEditor')?.focus();
+}
+
+function getRichContent() {
+  return $('richEditor')?.innerHTML || '';
+}
+
+async function addMaterialRich() {
+  const title = $('matTitle').value.trim();
+  const subject_id = $('matSubject').value;
+  const content_html = getRichContent();
+  const content = $('richEditor')?.innerText || '';
+  if (!title && !content) return toast('Thêm tiêu đề hoặc nội dung','error');
+  try {
+    await apiFetch('/materials',{ method:'POST', body:JSON.stringify({ title:title||'Ghi chú mới', subject_id, content, content_html, type:'note' }) });
+    closeModal('addMaterialModal');
+    if ($('richEditor')) $('richEditor').innerHTML='';
+    $('matTitle').value='';
+    loadMaterials();
+    toast('Đã lưu ghi chú!');
+  } catch(err){ toast(err.message,'error'); }
+}
+
+// ─── NAVIGATE UPDATE ──────────────────────────────────
+const _origNavigate = navigate;
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  $(`page-${page}`)?.classList.add('active');
+  document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
+  setTimeout(() => {
+    if (page === 'tasks') loadTasks();
+    if (page === 'materials') { loadSubjects(); loadMaterials(); }
+    if (page === 'flashcards') loadFlashcards();
+    if (page === 'stats') loadStats();
+    if (page === 'profile') loadProfile();
+    if (page === 'ai') loadChatHistory();
+    if (page === 'calendar') loadCalendar();
+    if (page === 'quiz') loadQuizList();
+  }, 0);
+}
+
+// Re-register nav click with new navigate
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.onclick = () => requestAnimationFrame(() => navigate(item.dataset.page));
+});
+
+// ─── INIT v2 ──────────────────────────────────────────
+const _origInit = init;
+async function init() {
+  loadSavedTheme();
+  initParticles();
+  setupFileDropZone();
+  initPWA();
+  initRichEditor();
+  const authed = await checkAuth();
+  if (!authed) return;
+  await loadSidebarProfile();
+  loadStats();
+  checkSharedDeck();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+
+// ─── Rich editor table insert ─────────────────────
+function insertTable() {
+  const table = `<table><thead><tr><th>Cột 1</th><th>Cột 2</th><th>Cột 3</th></tr></thead><tbody><tr><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td></tr></tbody></table><p><br></p>`;
+  document.execCommand('insertHTML', false, table);
+  $('richEditor')?.focus();
+}
