@@ -3409,3 +3409,48 @@ select.input-field option {
   color: var(--accent);
   border-bottom-color: var(--accent);
 }
+
+/* ─── Fix OCR layout overflow ────────────────────── */
+#page-ocr {
+  overflow-x: hidden;
+}
+
+#ocrTabContentOcr,
+#ocrTabContentScan {
+  overflow-x: hidden;
+}
+
+.ocr-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.2rem;
+  padding: 1.2rem 2rem;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.ocr-upload-card,
+.ocr-result-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ocr-text-output {
+  max-width: 100%;
+  overflow-x: auto;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.ocr-ai-answer {
+  max-width: 100%;
+  overflow-x: auto;
+  word-break: break-word;
+}
+
+@media (max-width: 768px) {
+  .ocr-layout {
+    grid-template-columns: 1fr;
+    padding: 1rem;
+  }
+}

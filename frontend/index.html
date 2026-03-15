@@ -48,27 +48,23 @@
 
   <nav class="sidebar-nav">
     <a class="nav-item active" data-page="home">
-      <span class="nav-icon">🏠</span><span class="nav-label">Home</span>
+      <span class="nav-icon">🏠</span><span class="nav-label">Trang chủ</span>
     </a>
     <a class="nav-item" data-page="tasks">
       <span class="nav-icon">✅</span><span class="nav-label">Tasks</span>
       <span class="nav-badge" id="taskBadge"></span>
     </a>
     <a class="nav-item" data-page="materials">
-      <span class="nav-icon">📚</span><span class="nav-label">Study Materials</span>
+      <span class="nav-icon">📚</span><span class="nav-label">Tài liệu</span>
     </a>
     <a class="nav-item" data-page="flashcards">
       <span class="nav-icon">🃏</span><span class="nav-label">Flashcards</span>
     </a>
     <a class="nav-item" data-page="stats">
-      <span class="nav-icon">📊</span><span class="nav-label">Statistics</span>
+      <span class="nav-icon">📊</span><span class="nav-label">Thống kê</span>
     </a>
     <a class="nav-item" data-page="ai">
       <span class="nav-icon">🤖</span><span class="nav-label">AI Tutor</span>
-    </a>
-
-    <a class="nav-item" data-page="themes">
-      <span class="nav-icon">🎨</span><span class="nav-label">Themes</span>
     </a>
     <a class="nav-item" data-page="calendar">
       <span class="nav-icon">📅</span><span class="nav-label">Lịch học</span>
@@ -77,7 +73,7 @@
       <span class="nav-icon">🧠</span><span class="nav-label">Quiz AI</span>
     </a>
     <a class="nav-item" data-page="ocr">
-      <span class="nav-icon">🔍</span><span class="nav-label">Deep OCR</span>
+      <span class="nav-icon">🔍</span><span class="nav-label">Phân tích ảnh</span>
       <span class="nav-new-badge">AI</span>
     </a>
     <a class="nav-item" data-page="rooms">
@@ -88,6 +84,9 @@
     </a>
     <a class="nav-item" data-page="games">
       <span class="nav-icon">🎮</span><span class="nav-label">Mini Games</span>
+    </a>
+    <a class="nav-item" data-page="profile">
+      <span class="nav-icon">👤</span><span class="nav-label">Hồ sơ</span>
     </a>
   </nav>
 
@@ -912,6 +911,71 @@
         </div>
       </div>
 
+    </div><!-- end ocr-layout -->
+    </div><!-- end ocrTabContentOcr -->
+
+    <!-- Tab: Scan & Lưu nhanh -->
+    <div id="ocrTabContentScan" style="display:none">
+      <div class="scan-layout">
+        <!-- Camera / Upload -->
+        <div class="scan-capture-card card">
+          <div class="scan-camera-area" id="scanCameraArea">
+            <video id="scanVideo" autoplay playsinline style="display:none;width:100%;border-radius:8px"></video>
+            <canvas id="scanCanvas" style="display:none"></canvas>
+            <div class="scan-placeholder" id="scanPlaceholder">
+              <div style="font-size:3rem">📷</div>
+              <div style="font-weight:700;margin-top:0.5rem">Chụp ảnh hoặc tải lên</div>
+              <div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px">Chụp bảng, sách, ghi chú → lưu ngay trong 2 giây</div>
+            </div>
+            <img id="scanPreview" style="display:none;width:100%;border-radius:8px;max-height:300px;object-fit:contain" />
+          </div>
+          <div class="scan-actions">
+            <button class="btn btn-primary" onclick="startCamera()" id="startCamBtn">📷 Mở camera</button>
+            <button class="btn btn-ghost" id="captureBtn" style="display:none" onclick="capturePhoto()">⭕ Chụp</button>
+            <button class="btn btn-ghost" onclick="document.getElementById('scanFileInput').click()">📁 Tải ảnh</button>
+            <input type="file" id="scanFileInput" accept="image/*" style="display:none" onchange="handleScanFile(this.files[0])" />
+          </div>
+          <button class="btn btn-primary" id="scanRunBtn" style="display:none;width:100%;margin-top:0.5rem" onclick="runScanOCR()">
+            🔍 Quét & Trích xuất
+          </button>
+        </div>
+
+        <!-- Result & Save -->
+        <div class="scan-result-card card" id="scanResultCard" style="display:none">
+          <div class="scan-result-header">
+            <span>📄 Nội dung đã trích xuất</span>
+            <div id="scanLoadingIndicator" style="display:none">
+              <div class="ocr-spinner" style="width:20px;height:20px"></div>
+            </div>
+          </div>
+          <textarea id="scanExtractedText" class="input-field textarea" rows="6" placeholder="Nội dung sẽ hiện ở đây..."></textarea>
+          <div class="scan-save-options">
+            <div class="sso-title">💾 Lưu nhanh</div>
+            <div class="sso-grid">
+              <button class="sso-btn" onclick="scanSaveAsNote()"><span>📝</span><span>Ghi chú</span></button>
+              <button class="sso-btn" onclick="openModal('scanFlashcardModal')"><span>🃏</span><span>Flashcard</span></button>
+              <button class="sso-btn" onclick="scanSendToAI()"><span>🤖</span><span>Hỏi AI</span></button>
+              <button class="sso-btn" onclick="copyScanText()"><span>📋</span><span>Copy</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- end ocrTabContentScan -->
+
+    <!-- Scan to Flashcard Modal -->
+    <div class="modal" id="scanFlashcardModal">
+      <div class="modal-content card">
+        <div class="modal-header">
+          <h2>🃏 Tạo Flashcard từ ảnh</h2>
+          <button class="modal-close" onclick="closeModal('scanFlashcardModal')">✕</button>
+        </div>
+        <p style="font-size:0.8rem;color:var(--text-muted)">AI sẽ tự tạo flashcard từ nội dung đã scan</p>
+        <input type="text" id="scanFlashSubject" class="input-field" placeholder="Môn học" />
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeModal('scanFlashcardModal')">Huỷ</button>
+          <button class="btn btn-primary" onclick="scanCreateFlashcards()">✨ Tạo Flashcard</button>
+        </div>
+      </div>
     </div>
   </section>
 
