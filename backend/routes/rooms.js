@@ -4,13 +4,36 @@ const router = express.Router();
 const pool = require('../db');
 const crypto = require('crypto');
 
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@studyflow.com';
+
 function genCode() {
-  return crypto.randomBytes(3).toString('hex').toUpperCase(); // VD: A3F9B2
+  return crypto.randomBytes(3).toString('hex').toUpperCase();
 }
 
-// GET my rooms
+/** Tự động xóa phòng nếu không còn thành viên */
+async function autoCleanRoom(roomId) {
+  try {
+    const members = await pool.query(
+      'SELECT COUNT(*) as cnt FROM room_members WHERE room_id=$1', [roomId]
+    );
+    if (parseInt(members.rows[0].cnt) === 0) {
+      await pool.query('DELETE FROM study_rooms WHERE id=$1', [roomId]);
+      console.log('Auto-deleted empty room:', roomId);
+    }
+  } catch (err) {
+    console.error('Auto-clean error:', err.message);
+  }
+}
+
+// GET my rooms (admin sees all rooms)
 router.get('/', async function(req, res) {
   try {
+    const user = await pool.query('SELECT email FROM users WHERE id=$1', [req.user.id]);
+    const isAdmin = user.rows[0]?.email === ADMIN_EMAIL;
+    const whereClause = isAdmin
+      ? ''
+      : 'WHERE r.owner_id=$1 OR r.id IN (SELECT room_id FROM room_members WHERE user_id=$1)';
+    const params = isAdmin ? [] : [req.user.id];
     const result = await pool.query(
       `SELECT r.id, r.name, r.subject, r.owner_id, r.invite_code, r.is_private, r.created_at, r.updated_at,
        CASE WHEN r.password_hash IS NOT NULL THEN true ELSE false END as has_password,
@@ -123,19 +146,37 @@ router.post('/:id/message', async function(req, res) {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// DELETE leave room
+// DELETE leave room — tự xóa phòng nếu trống
 router.delete('/:id/leave', async function(req, res) {
   try {
     await pool.query('DELETE FROM room_members WHERE room_id=$1 AND user_id=$2', [req.params.id, req.user.id]);
     res.json({ message: 'Đã rời phòng' });
+    // Kiểm tra và xóa phòng nếu trống (async, không block response)
+    autoCleanRoom(req.params.id);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// DELETE room (owner only)
+// DELETE room (owner hoặc admin)
 router.delete('/:id', async function(req, res) {
   try {
-    await pool.query('DELETE FROM study_rooms WHERE id=$1 AND owner_id=$2', [req.params.id, req.user.id]);
+    const user = await pool.query('SELECT email FROM users WHERE id=$1', [req.user.id]);
+    const isAdmin = user.rows[0]?.email === ADMIN_EMAIL;
+    let result;
+    if (isAdmin) {
+      result = await pool.query('DELETE FROM study_rooms WHERE id=$1 RETURNING id', [req.params.id]);
+    } else {
+      result = await pool.query('DELETE FROM study_rooms WHERE id=$1 AND owner_id=$2 RETURNING id', [req.params.id, req.user.id]);
+    }
+    if (!result.rows.length) return res.status(403).json({ error: 'Không có quyền xóa phòng này' });
     res.json({ message: 'Đã xóa phòng' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET admin check
+router.get('/admin/check', async function(req, res) {
+  try {
+    const user = await pool.query('SELECT email FROM users WHERE id=$1', [req.user.id]);
+    res.json({ isAdmin: user.rows[0]?.email === ADMIN_EMAIL });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

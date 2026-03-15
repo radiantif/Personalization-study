@@ -3476,3 +3476,221 @@ async function loadRooms() {
       </div>`).join('');
   } catch { list.innerHTML = '<div class="loading-state">Lỗi tải phòng học</div>'; }
 }
+
+// ═══════════════════════════════════════════════════════
+// ROOM MIC + ADMIN FEATURES
+// ═══════════════════════════════════════════════════════
+
+let micStream = null;
+let micActive = false;
+let audioContext = null;
+let micAnalyser = null;
+let micAnimFrame = null;
+let isRoomAdmin = false;
+
+/** Kiểm tra quyền admin khi vào phòng */
+async function checkRoomAdmin() {
+  try {
+    const data = await apiFetch('/rooms/admin/check');
+    isRoomAdmin = data.isAdmin;
+    const adminBtn = $('adminDeleteRoomBtn');
+    if (adminBtn) adminBtn.style.display = isRoomAdmin ? 'flex' : 'none';
+  } catch { isRoomAdmin = false; }
+}
+
+/** Override enterRoom để check admin */
+const _origEnterRoom = enterRoom;
+async function enterRoom(id) {
+  currentRoomId = id;
+  $('roomsList').style.display = 'none';
+  $('roomDetail').style.display = 'block';
+  const header = document.querySelector('#page-rooms .page-header');
+  if (header) header.style.display = 'none';
+  await checkRoomAdmin();
+  await refreshRoom();
+  if (roomPollInterval) clearInterval(roomPollInterval);
+  roomPollInterval = setInterval(refreshRoom, 5000);
+}
+
+/** Admin xóa bất kỳ phòng nào */
+async function adminDeleteRoom() {
+  if (!currentRoomId || !isRoomAdmin) return;
+  if (!confirm('⚠️ Xóa phòng học này? Tất cả tin nhắn sẽ bị mất.')) return;
+  try {
+    await apiFetch('/rooms/' + currentRoomId, { method: 'DELETE' });
+    exitRoom();
+    loadRooms();
+    toast('🗑️ Đã xóa phòng (Admin)');
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+// ─── MIC FEATURE ─────────────────────────────────────
+
+/** Bật/tắt microphone */
+async function toggleMic() {
+  if (micActive) {
+    stopMic();
+  } else {
+    await startMic();
+  }
+}
+
+async function startMic() {
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    micActive = true;
+
+    // Setup audio analyser để hiện sóng âm
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioContext.createMediaStreamSource(micStream);
+    micAnalyser = audioContext.createAnalyser();
+    micAnalyser.fftSize = 32;
+    source.connect(micAnalyser);
+    animateMicBars();
+
+    // Update UI
+    const btn = $('micBtn');
+    const icon = $('micIcon');
+    const label = $('micLabel');
+    const status = $('micStatus');
+    const viz = $('micVisualizer');
+    if (btn) btn.classList.add('active');
+    if (icon) icon.textContent = '🔴';
+    if (label) label.textContent = 'Tắt mic';
+    if (status) { status.textContent = 'Đang phát'; status.classList.add('on'); }
+    if (viz) viz.classList.add('active');
+
+    // Cập nhật status lên server
+    await updateRoomStatus('speaking');
+    toast('🎤 Mic đã bật — mọi người trong phòng có thể nghe');
+
+  } catch (err) {
+    if (err.name === 'NotAllowedError') {
+      toast('❌ Trình duyệt chưa cho phép dùng mic. Kiểm tra cài đặt.', 'error');
+    } else {
+      toast('❌ Không thể bật mic: ' + err.message, 'error');
+    }
+  }
+}
+
+function stopMic() {
+  if (micStream) {
+    micStream.getTracks().forEach(t => t.stop());
+    micStream = null;
+  }
+  if (audioContext) { audioContext.close(); audioContext = null; }
+  if (micAnimFrame) { cancelAnimationFrame(micAnimFrame); micAnimFrame = null; }
+  micActive = false;
+
+  // Update UI
+  const btn = $('micBtn');
+  const icon = $('micIcon');
+  const label = $('micLabel');
+  const status = $('micStatus');
+  const viz = $('micVisualizer');
+  if (btn) btn.classList.remove('active');
+  if (icon) icon.textContent = '🎤';
+  if (label) label.textContent = 'Bật mic';
+  if (status) { status.textContent = 'Tắt'; status.classList.remove('on'); }
+  if (viz) { viz.classList.remove('active'); resetMicBars(); }
+
+  updateRoomStatus('studying');
+}
+
+/** Animate thanh sóng âm theo âm lượng thực tế */
+function animateMicBars() {
+  if (!micAnalyser) return;
+  const dataArray = new Uint8Array(micAnalyser.frequencyBinCount);
+  const bars = document.querySelectorAll('.mic-bar');
+
+  function draw() {
+    micAnimFrame = requestAnimationFrame(draw);
+    micAnalyser.getByteFrequencyData(dataArray);
+    const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+    const normalized = Math.min(avg / 128, 1);
+
+    bars.forEach((bar, i) => {
+      const heights = [0.4, 0.7, 1, 0.7, 0.4];
+      const h = Math.max(3, normalized * 18 * heights[i] * (0.8 + Math.random() * 0.4));
+      bar.style.height = h + 'px';
+    });
+  }
+  draw();
+}
+
+function resetMicBars() {
+  document.querySelectorAll('.mic-bar').forEach(b => b.style.height = '3px');
+}
+
+/** Override updateRoomStatus để hỗ trợ speaking status */
+async function updateRoomStatus(forcedStatus) {
+  if (!currentRoomId) return;
+  const subject = $('myStudySubject')?.value || '';
+  const status = forcedStatus || (micActive ? 'speaking' : 'studying');
+  try {
+    await apiFetch(`/rooms/${currentRoomId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, study_subject: subject })
+    });
+  } catch {}
+}
+
+/** Override refreshRoom để hiện indicator đang nói */
+async function refreshRoom() {
+  if (!currentRoomId) return;
+  try {
+    const room = await apiFetch('/rooms/' + currentRoomId);
+    $('roomDetailName').textContent = room.name;
+
+    const membersList = $('roomMembersList');
+    membersList.innerHTML = room.members.map(m => {
+      const isSpeaking = m.status === 'speaking';
+      const avatarHtml = m.custom_avatar
+        ? `<img src="${m.custom_avatar.startsWith('http') ? m.custom_avatar : API.replace('/api','') + m.custom_avatar}" />`
+        : m.avatar || '👤';
+      const isMe = currentUser && m.id === currentUser.id;
+      return `<div class="room-member-item">
+        <div class="rmi-avatar">${avatarHtml}</div>
+        <div class="rmi-info">
+          <div class="rmi-name">
+            ${escHtml(m.name)}
+            ${isRoomAdmin && isMe ? '<span class="admin-badge">Admin</span>' : ''}
+          </div>
+          <div class="rmi-status ${isSpeaking ? 'studying' : ''}">
+            ${isSpeaking ? '🎤 Đang nói' : m.study_subject ? '📚 ' + escHtml(m.study_subject) : '🟢 Đang học'}
+          </div>
+        </div>
+        ${isSpeaking ? '<div class="rmi-speaking"></div>' : ''}
+        <span style="font-size:0.65rem;color:var(--text-muted)">Lv.${m.level||1}</span>
+      </div>`;
+    }).join('');
+
+    // Render messages
+    const chatEl = $('roomChatMessages');
+    const wasAtBottom = chatEl.scrollHeight - chatEl.scrollTop <= chatEl.clientHeight + 50;
+    chatEl.innerHTML = room.messages.map(m => {
+      const isMe = currentUser && m.user_id === currentUser.id;
+      return `<div class="rcm-item ${isMe ? 'mine' : ''}">
+        <div class="rcm-bubble">
+          ${!isMe ? `<div class="rcm-name">${escHtml(m.sender_name)}</div>` : ''}
+          ${escHtml(m.content)}
+        </div>
+      </div>`;
+    }).join('');
+    if (wasAtBottom) chatEl.scrollTop = chatEl.scrollHeight;
+
+  } catch {}
+}
+
+/** Override exitRoom để tắt mic */
+const _origExitRoom = exitRoom;
+function exitRoom() {
+  if (micActive) stopMic();
+  currentRoomId = null;
+  isRoomAdmin = false;
+  if (roomPollInterval) { clearInterval(roomPollInterval); roomPollInterval = null; }
+  $('roomsList').style.display = 'grid';
+  $('roomDetail').style.display = 'none';
+  const header = document.querySelector('#page-rooms .page-header');
+  if (header) header.style.display = 'flex';
+}

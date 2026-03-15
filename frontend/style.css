@@ -3246,3 +3246,138 @@ select.input-field option {
   .rm-weeks-grid { grid-template-columns: 1fr; }
   .sso-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ─── Room password toggle ───────────────────────── */
+.room-password-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.room-pass-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.4rem 0;
+}
+
+.room-pass-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.room-pass-toggle:hover { color: var(--text); }
+
+/* ─── Profile page with themes ───────────────────── */
+#profileThemesCard .themes-grid {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 768px) {
+  #profileThemesCard .themes-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   MIC CONTROLS + ADMIN
+═══════════════════════════════════════════════════ */
+.mic-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  margin-bottom: 0.8rem;
+}
+
+.mic-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0.35rem 0.8rem;
+  border-radius: 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.mic-btn:hover { border-color: var(--accent); color: var(--accent); }
+.mic-btn.active {
+  background: rgba(255, 100, 100, 0.12);
+  border-color: #ff6464;
+  color: #ff6464;
+}
+
+/* Animated bars when mic is on */
+.mic-visualizer {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 20px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.mic-visualizer.active { opacity: 1; }
+
+.mic-bar {
+  width: 3px;
+  background: #ff6464;
+  border-radius: 2px;
+  min-height: 3px;
+  animation: micPulse 0.6s ease-in-out infinite alternate;
+}
+.mic-bar:nth-child(1) { animation-delay: 0s; }
+.mic-bar:nth-child(2) { animation-delay: 0.1s; }
+.mic-bar:nth-child(3) { animation-delay: 0.2s; }
+.mic-bar:nth-child(4) { animation-delay: 0.1s; }
+.mic-bar:nth-child(5) { animation-delay: 0s; }
+
+@keyframes micPulse {
+  from { height: 3px; }
+  to { height: 18px; }
+}
+
+.mic-status {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+.mic-status.on { color: #ff6464; font-weight: 700; }
+
+/* Member speaking indicator */
+.rmi-speaking {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #ff6464;
+  animation: speakPulse 0.5s ease infinite;
+  flex-shrink: 0;
+}
+@keyframes speakPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.6; }
+}
+
+/* Admin badge */
+.admin-badge {
+  font-size: 0.6rem;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(255, 200, 0, 0.15);
+  color: #ffd700;
+  border: 1px solid rgba(255, 200, 0, 0.3);
+  font-weight: 700;
+}

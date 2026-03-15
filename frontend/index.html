@@ -973,9 +973,25 @@
             <span id="roomDetailName">Phòng học</span>
             <div style="display:flex;gap:0.4rem">
               <button class="btn btn-ghost btn-sm" id="copyRoomCodeBtn" onclick="copyRoomCode()">📋 Mã</button>
+              <button class="btn btn-ghost btn-sm" id="adminDeleteRoomBtn" onclick="adminDeleteRoom()" style="display:none;color:#ff6464">🗑️ Xóa</button>
               <button class="btn btn-ghost btn-sm" onclick="leaveRoom()" style="color:#ff6464">Rời</button>
             </div>
           </div>
+
+          <!-- Mic Controls -->
+          <div class="mic-controls" id="micControls">
+            <button class="mic-btn" id="micBtn" onclick="toggleMic()" title="Bật/tắt mic">
+              <span id="micIcon">🎤</span>
+              <span id="micLabel">Bật mic</span>
+            </button>
+            <div class="mic-visualizer" id="micVisualizer">
+              <div class="mic-bar"></div><div class="mic-bar"></div>
+              <div class="mic-bar"></div><div class="mic-bar"></div>
+              <div class="mic-bar"></div>
+            </div>
+            <span class="mic-status" id="micStatus">Tắt</span>
+          </div>
+
           <div class="room-subject-selector">
             <select id="myStudySubject" class="input-field" onchange="updateRoomStatus()" style="font-size:0.78rem">
               <option value="">Chọn môn đang học...</option>
