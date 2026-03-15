@@ -3381,3 +3381,31 @@ select.input-field option {
   border: 1px solid rgba(255, 200, 0, 0.3);
   font-weight: 700;
 }
+
+/* ─── OCR Tabs ────────────────────────────────────── */
+.ocr-tabs {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0 2rem 0;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.ocr-tab {
+  padding: 0.7rem 1.2rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+  margin-bottom: -1px;
+}
+
+.ocr-tab:hover { color: var(--text); }
+.ocr-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}

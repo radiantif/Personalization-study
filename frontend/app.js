@@ -3694,3 +3694,20 @@ function exitRoom() {
   const header = document.querySelector('#page-rooms .page-header');
   if (header) header.style.display = 'flex';
 }
+
+// ─── OCR Tab switcher ─────────────────────────────────
+function switchOcrTab(tab) {
+  // Update tab buttons
+  document.querySelectorAll('.ocr-tab').forEach(t => t.classList.remove('active'));
+  const activeTab = document.getElementById('ocrTab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+  if (activeTab) activeTab.classList.add('active');
+
+  // Show/hide content
+  const ocrContent = document.getElementById('ocrTabContentOcr');
+  const scanContent = document.getElementById('ocrTabContentScan');
+  if (ocrContent) ocrContent.style.display = tab === 'ocr' ? 'block' : 'none';
+  if (scanContent) scanContent.style.display = tab === 'scan' ? 'block' : 'none';
+
+  // Stop camera if switching away from scan
+  if (tab !== 'scan' && scanStream) stopCamera();
+}

@@ -89,9 +89,6 @@
     <a class="nav-item" data-page="games">
       <span class="nav-icon">🎮</span><span class="nav-label">Mini Games</span>
     </a>
-    <a class="nav-item" data-page="scan">
-      <span class="nav-icon">📷</span><span class="nav-label">Scan & Lưu</span>
-    </a>
   </nav>
 
   <button class="pwa-install-btn" id="pwaInstallBtn" onclick="installPWA()" style="display:none">
@@ -659,53 +656,6 @@
     </div>
   </section>
 
-  <!-- ── PAGE: THEMES (kept for compatibility) - hidden ────────────────────────────────────────── -->
-  <section class="page" id="page-themes">
-    <div class="page-header">
-      <h1 class="page-title">Themes</h1>
-      <p class="page-sub">Personalize your study environment</p>
-    </div>
-    <div class="themes-grid">
-      <div class="theme-card active" data-theme="dark" onclick="applyTheme('dark', this)">
-        <div class="theme-preview tp-dark">
-          <div class="tp-sidebar"></div>
-          <div class="tp-main"></div>
-        </div>
-        <div class="theme-info">
-          <span class="theme-name">Dark Study</span>
-          <span class="theme-check">✓</span>
-        </div>
-      </div>
-      <div class="theme-card" data-theme="anime" onclick="applyTheme('anime', this)">
-        <div class="theme-preview tp-anime">
-          <div class="tp-sidebar"></div>
-          <div class="tp-main"></div>
-        </div>
-        <div class="theme-info">
-          <span class="theme-name">Anime Study</span>
-        </div>
-      </div>
-      <div class="theme-card" data-theme="library" onclick="applyTheme('library', this)">
-        <div class="theme-preview tp-library">
-          <div class="tp-sidebar"></div>
-          <div class="tp-main"></div>
-        </div>
-        <div class="theme-info">
-          <span class="theme-name">Library</span>
-        </div>
-      </div>
-      <div class="theme-card" data-theme="cyberpunk" onclick="applyTheme('cyberpunk', this)">
-        <div class="theme-preview tp-cyberpunk">
-          <div class="tp-sidebar"></div>
-          <div class="tp-main"></div>
-        </div>
-        <div class="theme-info">
-          <span class="theme-name">Cyberpunk</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
   <!-- ── PAGE: CALENDAR ─────────────────────────────────── -->
   <section class="page" id="page-calendar">
     <div class="page-header">
@@ -844,10 +794,22 @@
     <div class="page-header">
       <div>
         <h1 class="page-title">Phân tích ảnh</h1>
-        <p class="page-sub">OCR • Giải bài tập • Scan & Lưu nhanh</p>
+        <p class="page-sub">OCR trích xuất văn bản • Giải bài tập • Scan & Lưu nhanh</p>
       </div>
     </div>
 
+    <!-- Tab switcher -->
+    <div class="ocr-tabs">
+      <button class="ocr-tab active" id="ocrTabOcr" onclick="switchOcrTab('ocr')">
+        🔍 Trích xuất văn bản
+      </button>
+      <button class="ocr-tab" id="ocrTabScan" onclick="switchOcrTab('scan')">
+        📷 Scan & Lưu nhanh
+      </button>
+    </div>
+
+    <!-- Tab: OCR -->
+    <div id="ocrTabContentOcr">
     <div class="ocr-layout">
 
       <!-- Upload Area -->
@@ -1122,76 +1084,7 @@
     <div id="gameArea" style="display:none;padding:0 2rem 2rem"></div>
   </section>
 
-  <!-- ── PAGE: SCAN & SAVE ───────────────────────────────── -->
-  <section class="page" id="page-scan">
-    <div class="page-header">
-      <div><h1 class="page-title">Scan & Lưu nhanh</h1><p class="page-sub">Chụp ảnh → OCR → lưu ghi chú hoặc flashcard trong 2 giây</p></div>
-    </div>
-    <div class="scan-layout">
-      <!-- Camera / Upload -->
-      <div class="scan-capture-card card">
-        <div class="scan-camera-area" id="scanCameraArea">
-          <video id="scanVideo" autoplay playsinline style="display:none;width:100%;border-radius:8px"></video>
-          <canvas id="scanCanvas" style="display:none"></canvas>
-          <div class="scan-placeholder" id="scanPlaceholder">
-            <div style="font-size:3rem">📷</div>
-            <div style="font-weight:700;margin-top:0.5rem">Chụp ảnh hoặc tải lên</div>
-          </div>
-          <img id="scanPreview" style="display:none;width:100%;border-radius:8px;max-height:300px;object-fit:contain" />
-        </div>
-        <div class="scan-actions">
-          <button class="btn btn-primary" onclick="startCamera()" id="startCamBtn">📷 Mở camera</button>
-          <button class="btn btn-ghost" id="captureBtn" style="display:none" onclick="capturePhoto()">⭕ Chụp</button>
-          <button class="btn btn-ghost" onclick="$('scanFileInput').click()">📁 Tải ảnh</button>
-          <input type="file" id="scanFileInput" accept="image/*" style="display:none" onchange="handleScanFile(this.files[0])" />
-        </div>
-        <button class="btn btn-primary" id="scanRunBtn" style="display:none;width:100%" onclick="runScanOCR()">
-          🔍 Quét & Trích xuất
-        </button>
-      </div>
 
-      <!-- Result & Save -->
-      <div class="scan-result-card card" id="scanResultCard" style="display:none">
-        <div class="scan-result-header">
-          <span>📄 Nội dung đã trích xuất</span>
-          <div id="scanLoadingIndicator" style="display:none">
-            <div class="ocr-spinner" style="width:20px;height:20px"></div>
-          </div>
-        </div>
-        <textarea id="scanExtractedText" class="input-field textarea" rows="6" placeholder="Nội dung sẽ hiện ở đây..."></textarea>
-        <div class="scan-save-options">
-          <div class="sso-title">💾 Lưu nhanh</div>
-          <div class="sso-grid">
-            <button class="sso-btn" onclick="scanSaveAsNote()">
-              <span>📝</span><span>Ghi chú</span>
-            </button>
-            <button class="sso-btn" onclick="openModal('scanFlashcardModal')">
-              <span>🃏</span><span>Flashcard</span>
-            </button>
-            <button class="sso-btn" onclick="scanSendToAI()">
-              <span>🤖</span><span>Hỏi AI</span>
-            </button>
-            <button class="sso-btn" onclick="copyScanText()">
-              <span>📋</span><span>Copy</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Scan to Flashcard Modal -->
-    <div class="modal" id="scanFlashcardModal">
-      <div class="modal-content card">
-        <div class="modal-header"><h2>🃏 Tạo Flashcard từ ảnh</h2><button class="modal-close" onclick="closeModal('scanFlashcardModal')">✕</button></div>
-        <p style="font-size:0.8rem;color:var(--text-muted)">AI sẽ tự tạo flashcard từ nội dung đã scan</p>
-        <input type="text" id="scanFlashSubject" class="input-field" placeholder="Môn học" />
-        <div class="modal-footer">
-          <button class="btn btn-ghost" onclick="closeModal('scanFlashcardModal')">Huỷ</button>
-          <button class="btn btn-primary" onclick="scanCreateFlashcards()">✨ Tạo Flashcard</button>
-        </div>
-      </div>
-    </div>
-  </section>
 
 </main>
 
