@@ -6,9 +6,9 @@
 'use strict';
 
 // ─── Config ──────────────────────────────────────────
-const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+const API = window.location.hostname === 'localhost'
   ? 'http://localhost:3001/api'
-  : 'https://study-dashboard-api-b17y.onrender.com/api';
+  : 'https://study-dashboard-api-b17y.onrender.com/api'; // ← Replace with your Render URL
 
 // ─── State ───────────────────────────────────────────
 let tasks = [];
@@ -904,8 +904,7 @@ function clearChat() {
 
 // ─── PROFILE ──────────────────────────────────────────
 async function loadProfile() {
-  const logoutBtn = document.getElementById('logoutBtn');
-if (logoutBtn) logoutBtn.style.display = 'block';
+  document.getElementById('logoutBtn').style.display = 'block';
   try {
     profile = await apiFetch('/profile');
     $('profileName').value = profile.name || '';
@@ -1097,6 +1096,16 @@ function openAvatarUpload() {
   input.accept = 'image/*';
   input.onchange = async function() {
     if (!input.files[0]) return;
+
+    // Kiểm tra dung lượng file
+    if (input.files[0].size > 5 * 1024 * 1024) {
+      toast('File quá lớn! Tối đa 5MB', 'error');
+      return;
+    }
+
+    // Hiện toast đang tải
+    toast('⏳ Đang tải ảnh lên...');
+
     const formData = new FormData();
     formData.append('avatar', input.files[0]);
     try {
@@ -1105,13 +1114,36 @@ function openAvatarUpload() {
         headers: { 'Authorization': 'Bearer ' + getToken() },
         body: formData,
       });
+
       const data = await res.json();
-      if (data.url) {
-        const fullUrl = API.replace('/api','') + data.url;
-        updateAvatarDisplay(fullUrl);
-        toast('Ảnh đại diện đã được cập nhật! 🎉');
+
+      if (!res.ok) {
+        toast('❌ ' + (data.error || 'Lỗi tải ảnh lên'), 'error');
+        return;
       }
-    } catch (err) { toast('Lỗi tải ảnh lên', 'error'); }
+
+      if (data.url) {
+        // Cloudinary trả về URL đầy đủ — không cần ghép thêm gì
+        const fullUrl = data.url.startsWith('http')
+          ? data.url
+          : API.replace('/api', '') + data.url;
+
+        updateAvatarDisplay(fullUrl);
+
+        // Cập nhật cached user
+        const cached = localStorage.getItem('sf_user');
+        if (cached) {
+          const user = JSON.parse(cached);
+          user.custom_avatar = data.url;
+          localStorage.setItem('sf_user', JSON.stringify(user));
+        }
+
+        toast('✅ Ảnh đại diện đã cập nhật!');
+      }
+    } catch (err) {
+      console.error('Avatar upload error:', err);
+      toast('❌ Không thể kết nối server', 'error');
+    }
   };
   input.click();
 }
@@ -1744,6 +1776,7 @@ async function deleteEvent(id) {
 }
 
 // ─── QUIZ ─────────────────────────────────────────────
+// Quiz state (declared above)
 
 async function loadQuizList() {
   const list = $('quizList');
