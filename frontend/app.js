@@ -2282,6 +2282,7 @@ function handleOcrFile(file) {
     $('ocrActions').style.display = 'flex';
     // Reset result
     $('ocrResultCard').style.display = 'none';
+  document.getElementById('ocrMainLayout')?.classList.remove('has-result');
     $('ocrAskOptions').style.display = 'none';
   };
   reader.readAsDataURL(file);
@@ -2418,6 +2419,7 @@ async function submitOCRAsk() {
 
 function showOcrLoading(msg) {
   $('ocrResultCard').style.display = 'flex';
+  document.getElementById('ocrMainLayout')?.classList.add('has-result');
   $('ocrLoading').style.display = 'flex';
   $('ocrLoadingText').textContent = msg || 'Đang xử lý...';
   $('ocrTextResult').style.display = 'none';

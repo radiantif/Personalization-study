@@ -3454,3 +3454,87 @@ select.input-field option {
     padding: 1rem;
   }
 }
+
+/* ─── Fix OCR upload card width ──────────────────── */
+.ocr-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.2rem;
+  padding: 1.2rem 2rem;
+  align-items: start;
+}
+
+/* Upload card không kéo dài khi result ẩn */
+.ocr-upload-card {
+  max-width: 100%;
+}
+
+/* Khi result card ẩn, upload card chỉ chiếm 1 nửa */
+.ocr-result-card[style*="display:none"] ~ * {
+  display: none;
+}
+
+/* ─── OCR Layout Fix ─────────────────────────────── */
+/* Khi chưa có kết quả: upload card ở giữa, giới hạn rộng */
+#ocrMainLayout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem;
+  padding: 1.5rem 2rem;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+#ocrUploadCard {
+  width: 100%;
+  max-width: 480px;
+  flex-shrink: 0;
+}
+
+/* Khi có kết quả, hiện 2 cột */
+#ocrMainLayout.has-result {
+  justify-content: flex-start;
+}
+
+#ocrMainLayout.has-result #ocrUploadCard {
+  flex: 1;
+  max-width: none;
+  min-width: 300px;
+}
+
+#ocrMainLayout.has-result .ocr-result-card {
+  flex: 1;
+  min-width: 300px;
+}
+
+/* Scan layout cũng fix */
+.scan-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem;
+  padding: 1.5rem 2rem;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.scan-capture-card {
+  width: 100%;
+  max-width: 480px;
+}
+
+.scan-result-card {
+  flex: 1;
+  min-width: 300px;
+}
+
+@media (max-width: 768px) {
+  #ocrMainLayout,
+  .scan-layout {
+    padding: 1rem;
+    flex-direction: column;
+  }
+  #ocrUploadCard,
+  .scan-capture-card {
+    max-width: 100%;
+  }
+}
