@@ -904,7 +904,8 @@ function clearChat() {
 
 // ─── PROFILE ──────────────────────────────────────────
 async function loadProfile() {
-  document.getElementById('logoutBtn').style.display = 'block';
+  const logoutBtn = document.getElementById('logoutBtn');
+if (logoutBtn) logoutBtn.style.display = 'block';
   try {
     profile = await apiFetch('/profile');
     $('profileName').value = profile.name || '';
