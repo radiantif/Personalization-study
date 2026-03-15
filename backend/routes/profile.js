@@ -6,12 +6,6 @@ const path = require('path');
 const pool = require('../db');
 const { v4: uuidv4 } = require('uuid');
 
-// Auth middleware
-function requireAuth(req, res, next) {
-  if (req.isAuthenticated()) return next();
-  res.status(401).json({ error: 'Chưa đăng nhập' });
-}
-
 // Multer for avatar upload
 const storage = multer.diskStorage({
   destination: function(req, file, cb) {
@@ -25,7 +19,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: function(req, file, cb) {
     const allowed = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
     const ext = path.extname(file.originalname).toLowerCase();
@@ -34,24 +28,25 @@ const upload = multer({
   }
 });
 
-// GET profile
-router.get('/', requireAuth, async function(req, res) {
+// GET profile — req.user.id đã được set bởi requireAuth trong server.js
+router.get('/', async function(req, res) {
   try {
     const result = await pool.query('SELECT * FROM users WHERE id=$1', [req.user.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Không tìm thấy' });
     res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST update profile (name, emoji avatar, exam_date, target)
-router.post('/', requireAuth, async function(req, res) {
+// POST update profile
+router.post('/', async function(req, res) {
   const { name, avatar, exam_date, target_subject } = req.body;
   try {
     const result = await pool.query(
       `UPDATE users SET name=$1, avatar=$2, exam_date=$3, target_subject=$4, updated_at=NOW()
        WHERE id=$5 RETURNING *`,
-      [name, avatar, exam_date, target_subject, req.user.id]
+      [name, avatar, exam_date || null, target_subject, req.user.id]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -60,7 +55,7 @@ router.post('/', requireAuth, async function(req, res) {
 });
 
 // POST upload avatar image
-router.post('/avatar', requireAuth, upload.single('avatar'), async function(req, res) {
+router.post('/avatar', upload.single('avatar'), async function(req, res) {
   if (!req.file) return res.status(400).json({ error: 'Không có file' });
   try {
     const fileUrl = '/uploads/' + req.file.filename;
@@ -75,7 +70,7 @@ router.post('/avatar', requireAuth, upload.single('avatar'), async function(req,
 });
 
 // POST add EXP
-router.post('/exp', requireAuth, async function(req, res) {
+router.post('/exp', async function(req, res) {
   const { amount } = req.body;
   try {
     const result = await pool.query(
