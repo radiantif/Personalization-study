@@ -678,8 +678,56 @@ async function logSession() {
 
 // ─── AI TUTOR ─────────────────────────────────────────
 let currentSubject = 'Chung';
+let currentLevel = null; // THCS | THPT | Đại học | Chung
 let currentChatId = null;
 let chatSessions = [];
+
+// ─── LEVEL SELECTOR ──────────────────────────────────
+function selectLevel(btn) {
+  const level = btn.dataset.level;
+  currentLevel = level;
+
+  // Ẩn overlay, hiện chat
+  const overlay = document.getElementById('aiLevelOverlay');
+  const chat = document.getElementById('aiChatLayout');
+  if (overlay) overlay.style.display = 'none';
+  if (chat) chat.style.display = 'grid';
+
+  // Cập nhật badge
+  const badge = document.getElementById('aiLevelBadge');
+  if (badge) {
+    badge.textContent = level;
+    badge.setAttribute('data-level', level);
+  }
+
+  // Hiện tin nhắn chào theo cấp
+  const levelGreetings = {
+    'THCS': '📗 Xin chào! Tôi sẽ giải thích theo chương trình **THCS** (lớp 6-9) — ngôn ngữ đơn giản, dễ hiểu, có nhiều ví dụ thực tế. Bạn cần giúp gì nào?',
+    'THPT': '📘 Xin chào! Tôi sẽ giải theo chương trình **THPT** (lớp 10-12) — đúng phương pháp thi, có công thức và bước giải chuẩn. Hỏi gì đi!',
+    'Đại học': '📙 Xin chào! Tôi sẽ giải ở mức **Đại học** — lý thuyết chuyên sâu, chứng minh đầy đủ, kết nối với ứng dụng thực tiễn. Bạn cần hỗ trợ gì?',
+    'Chung': '🌐 Xin chào! Tôi sẽ giải thích theo cách **phổ thông nhất** — phù hợp mọi cấp độ. Cứ hỏi thoải mái nhé!',
+  };
+
+  const chatMessages = document.getElementById('chatMessages');
+  if (chatMessages) {
+    chatMessages.innerHTML = `
+      <div class="chat-msg ai">
+        <div class="chat-avatar">🤖</div>
+        <div class="chat-bubble">${formatAIResponse(levelGreetings[level] || levelGreetings['Chung'])}</div>
+      </div>`;
+  }
+
+  // Load chat history
+  loadChatHistory();
+}
+
+function showLevelSelector() {
+  const overlay = document.getElementById('aiLevelOverlay');
+  const chat = document.getElementById('aiChatLayout');
+  if (overlay) overlay.style.display = 'flex';
+  if (chat) chat.style.display = 'none';
+  currentLevel = null;
+}
 
 function selectSubject(btn) {
   document.querySelectorAll('.ai-subj-btn').forEach(b => b.classList.remove('active'));
@@ -710,6 +758,14 @@ function selectSubject(btn) {
 }
 
 async function loadChatHistory() {
+  // Nếu chưa chọn cấp độ thì hiện overlay
+  if (!currentLevel) {
+    const overlay = document.getElementById('aiLevelOverlay');
+    const chat = document.getElementById('aiChatLayout');
+    if (overlay) overlay.style.display = 'flex';
+    if (chat) chat.style.display = 'none';
+    return;
+  }
   try {
     chatSessions = await apiFetch('/chats');
     renderChatHistory();
@@ -863,7 +919,7 @@ async function sendMessage() {
   try {
     const data = await apiFetch('/ai/chat', {
       method: 'POST',
-      body: JSON.stringify({ message: msg, history: chatHistory.slice(-10), subject: currentSubject }),
+      body: JSON.stringify({ message: msg, history: chatHistory.slice(-10), subject: currentSubject, level: currentLevel || 'Chung' }),
     });
     $('typingIndicator')?.remove();
     const reply = data.reply;
@@ -1674,18 +1730,8 @@ function checkDeadlineNotifications() {
 
 // ─── PWA Setup ────────────────────────────────────────
 function initPWA() {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js')
-      .then(() => console.log('✅ Service Worker registered'))
-      .catch(err => console.warn('SW error:', err));
-  }
-  // Install prompt
-  let deferredPrompt;
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    showInstallBanner(deferredPrompt);
-  });
+  // Service Worker đã được đăng ký ở trên
+  // Chỉ xử lý install banner ở đây
 }
 
 function showInstallBanner(prompt) {

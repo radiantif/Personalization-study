@@ -2352,3 +2352,102 @@ select.input-field option {
   .cal-cell { min-height: 40px; }
   .qq-options { grid-template-columns: 1fr; }
 }
+
+/* ─── AI LEVEL SELECTOR ──────────────────────────── */
+.ai-level-overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  animation: fadeIn 0.3s ease;
+}
+
+#page-ai { position: relative; }
+
+.ai-level-card {
+  text-align: center;
+  max-width: 500px;
+  width: 100%;
+  padding: 2rem;
+  animation: slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ai-level-logo {
+  font-size: 3.5rem;
+  margin-bottom: 1rem;
+  animation: float 3s ease-in-out infinite;
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.ai-level-title {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+}
+
+.ai-level-sub {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 2rem;
+}
+
+.ai-level-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+}
+
+.ai-level-btn {
+  background: var(--card-bg);
+  border: 2px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 1.2rem 1rem;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+}
+
+.ai-level-btn:hover {
+  border-color: var(--accent);
+  background: rgba(124,111,255,0.08);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px var(--glow);
+}
+
+.ai-level-btn:nth-child(1):hover { border-color: #4af0d4; box-shadow: 0 8px 25px rgba(74,240,212,0.2); }
+.ai-level-btn:nth-child(2):hover { border-color: #7c6fff; box-shadow: 0 8px 25px rgba(124,111,255,0.2); }
+.ai-level-btn:nth-child(3):hover { border-color: #ff6fb0; box-shadow: 0 8px 25px rgba(255,111,176,0.2); }
+.ai-level-btn:nth-child(4):hover { border-color: #ffe05a; box-shadow: 0 8px 25px rgba(255,224,90,0.2); }
+
+.alb-icon { font-size: 2rem; }
+.alb-name { font-size: 1rem; font-weight: 700; color: var(--text); }
+.alb-desc { font-size: 0.72rem; color: var(--text-muted); }
+
+.ai-level-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: rgba(124,111,255,0.15);
+  color: var(--accent);
+  border: 1px solid rgba(124,111,255,0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Level colors */
+.ai-level-badge[data-level="THCS"] { background: rgba(74,240,212,0.12); color: #4af0d4; border-color: rgba(74,240,212,0.3); }
+.ai-level-badge[data-level="THPT"] { background: rgba(124,111,255,0.12); color: #7c6fff; border-color: rgba(124,111,255,0.3); }
+.ai-level-badge[data-level="Đại học"] { background: rgba(255,111,176,0.12); color: #ff6fb0; border-color: rgba(255,111,176,0.3); }
+.ai-level-badge[data-level="Chung"] { background: rgba(255,224,90,0.12); color: #ffe05a; border-color: rgba(255,224,90,0.3); }

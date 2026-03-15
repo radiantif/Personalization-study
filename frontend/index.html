@@ -425,7 +425,39 @@
 
   <!-- ── PAGE: AI TUTOR ──────────────────────────────────────── -->
   <section class="page" id="page-ai">
-    <div class="ai-full-layout">
+
+    <!-- Level Selector Overlay -->
+    <div class="ai-level-overlay" id="aiLevelOverlay">
+      <div class="ai-level-card">
+        <div class="ai-level-logo">🤖</div>
+        <h2 class="ai-level-title">Chọn cấp độ học</h2>
+        <p class="ai-level-sub">AI sẽ giải thích theo đúng chương trình học của bạn</p>
+        <div class="ai-level-grid">
+          <button class="ai-level-btn" data-level="THCS" onclick="selectLevel(this)">
+            <span class="alb-icon">📗</span>
+            <span class="alb-name">THCS</span>
+            <span class="alb-desc">Lớp 6 – 9</span>
+          </button>
+          <button class="ai-level-btn" data-level="THPT" onclick="selectLevel(this)">
+            <span class="alb-icon">📘</span>
+            <span class="alb-name">THPT</span>
+            <span class="alb-desc">Lớp 10 – 12</span>
+          </button>
+          <button class="ai-level-btn" data-level="Đại học" onclick="selectLevel(this)">
+            <span class="alb-icon">📙</span>
+            <span class="alb-name">Đại học</span>
+            <span class="alb-desc">Cao đẳng / ĐH</span>
+          </button>
+          <button class="ai-level-btn" data-level="Chung" onclick="selectLevel(this)">
+            <span class="alb-icon">🌐</span>
+            <span class="alb-name">Chung</span>
+            <span class="alb-desc">Không giới hạn</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="ai-full-layout" id="aiChatLayout" style="display:none">
 
       <!-- Left: Chat History -->
       <div class="ai-history-panel">
@@ -444,8 +476,10 @@
           <div class="ai-current-subject" id="aiCurrentSubjectLabel">
             <span id="aiSubjectIcon">🤖</span>
             <span id="aiSubjectName">Gia sư AI</span>
+            <span class="ai-level-badge" id="aiLevelBadge">Chung</span>
           </div>
           <div class="ai-topbar-actions">
+            <button class="btn btn-ghost btn-sm" onclick="showLevelSelector()">🎓 Đổi cấp</button>
             <button class="btn btn-ghost btn-sm" onclick="clearChat()">🗑️ Xóa</button>
             <button class="btn btn-ghost btn-sm" onclick="saveChatSession()">💾 Lưu</button>
           </div>
@@ -506,7 +540,7 @@
         </div>
       </div>
 
-    </div>
+    </div><!-- end ai-full-layout -->
   </section>
 
   <!-- ── PAGE: PROFILE ───────────────────────────────────────── -->
@@ -772,6 +806,7 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <script src="app.js"></script>
+<script src="features.js"></script>
 <script>document.addEventListener("DOMContentLoaded",()=>{setTimeout(checkDeadlineNotifications,3000);})</script>
 </body>
 </html>
