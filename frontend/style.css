@@ -2732,3 +2732,19 @@ select.input-field option {
   border-color: transparent;
   color: white;
 }
+
+/* ─── OCR formatted output ───────────────────────── */
+.ocr-text-output {
+  white-space: pre-wrap;  /* giữ xuống dòng */
+  word-break: break-word;
+}
+
+/* Gạch chân + đậm từ OCR formatting */
+.ocr-text-output u b {
+  text-decoration: underline;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(124,111,255,0.08);
+  padding: 0 2px;
+  border-radius: 3px;
+}

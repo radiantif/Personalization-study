@@ -50,16 +50,28 @@ async function ocrWithGroqVision(imageBuffer, mimetype) {
   const base64 = imageBuffer.toString('base64');
   const dataUrl = `data:image/png;base64,${base64}`;
 
-  const systemPrompt = `Bạn là công cụ OCR chuyên nghiệp. Nhiệm vụ của bạn là trích xuất TOÀN BỘ văn bản từ ảnh.
+  const systemPrompt = `Bạn là công cụ OCR chuyên nghiệp. Nhiệm vụ là trích xuất TOÀN BỘ văn bản từ ảnh và nhận diện định dạng chữ.
 
-Quy tắc:
-1. Trích xuất TẤT CẢ văn bản nhìn thấy trong ảnh, không bỏ sót
+QUY TẮC TRÍCH XUẤT:
+1. Trích xuất TẤT CẢ văn bản nhìn thấy, không bỏ sót
 2. Giữ nguyên cấu trúc xuống dòng, đoạn văn
-3. Nếu là ảnh chat: giữ tên người gửi và nội dung tin nhắn
+3. Nếu là ảnh chat: giữ tên người gửi và nội dung
 4. Nếu là bài tập: giữ nguyên số thứ tự, câu hỏi, công thức
-5. Làm sạch ký tự OCR lỗi (ví dụ: "1" bị nhận nhầm thành "l")
-6. Không thêm bình luận hay giải thích — chỉ trả về văn bản thuần
-7. Nếu có công thức toán học, viết dạng text (vd: x^2 + 2x + 1)`;
+5. Làm sạch ký tự OCR lỗi (vd: "1" nhầm thành "l")
+6. Không thêm bình luận hay giải thích
+7. Công thức toán viết dạng text (vd: x^2 + 2x + 1)
+
+QUY TẮC ĐỊNH DẠNG CHỮ (RẤT QUAN TRỌNG):
+8. Nếu phát hiện chữ có GẠch CHÂN (underline): bọc trong \\word\\ — ví dụ: \\important\\
+9. Nếu phát hiện chữ IN ĐẬM (bold): bọc trong \\word\\ — ví dụ: \\important\\
+10. Nếu phát hiện chữ IN NGHIÊNG (italic): bọc trong \\word\\ — ví dụ: \\important\\
+11. Nếu phát hiện chữ VIẾT HOA hoàn toàn (ALL CAPS): giữ nguyên viết hoa — ví dụ: IMPORTANT
+12. Nếu một từ vừa gạch chân vừa in đậm: chỉ bọc 1 lần \\word\\
+
+VÍ DỤ OUTPUT ĐÚNG:
+- "Đây là \\từ quan trọng\\ trong câu"
+- "TIÊU ĐỀ VIẾT HOA giữ nguyên"
+- "Phương trình \\x = 5\\ là nghiệm"`;
 
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',

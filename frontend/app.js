@@ -2376,13 +2376,14 @@ function showOcrTextResult(data) {
   `;
   $('ocrMeta').style.display = 'flex';
 
-  // Text output
-  $('ocrOutput').textContent = data.text;
+  // Text output — render định dạng \word\ thành <u><b>word</b></u>
+  const rawText = data.text;
+  $('ocrOutput').innerHTML = formatOcrText(rawText);
   $('ocrTextResult').style.display = 'block';
   $('ocrAiResult').style.display = 'none';
 
-  // Lưu text để dùng sau
-  $('ocrOutput').dataset.text = data.text;
+  // Lưu text gốc để copy/lưu
+  $('ocrOutput').dataset.text = rawText;
 
   // Hiện nút "Giải bài tập" sau khi đọc xong
   const solveSection = $('ocrSolveSection');
@@ -2401,6 +2402,18 @@ function showOcrAiResult(answer, subject, level) {
   // Ẩn solve panel sau khi đã giải
   const panel = $('ocrSolvePanel');
   if (panel) panel.style.display = 'none';
+}
+
+/**
+ * Render định dạng OCR:
+ * \word\ → <u><b>word</b></u> (gạch chân + đậm)
+ * ALL CAPS → giữ nguyên viết hoa
+ */
+function formatOcrText(text) {
+  if (!text) return '';
+  return escHtml(text)
+    // \word\ → gạch chân + in đậm
+    .replace(/\\([^\\]+)\\/g, '<u><b>$1</b></u>');
 }
 
 /** Copy văn bản OCR ra clipboard */
