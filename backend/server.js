@@ -1,10 +1,15 @@
 'use strict';
 require('dotenv').config();
+const fs = require('fs');
+const uploadsDir = require('path').join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log('✅ Created uploads directory');
+}
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const jwt = require('jsonwebtoken');
-
 const JWT_SECRET = process.env.JWT_SECRET || 'studyflow-jwt-secret-2024';
 
 const app = express();
