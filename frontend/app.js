@@ -904,14 +904,29 @@ function clearChat() {
 
 // ─── PROFILE ──────────────────────────────────────────
 async function loadProfile() {
-  document.getElementById('logoutBtn').style.display = 'block';
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) logoutBtn.style.display = 'block';
   try {
     profile = await apiFetch('/profile');
-    $('profileName').value = profile.name || '';
-    $('profileAvatar').textContent = profile.avatar || '🎓';
+    if ($('profileName')) $('profileName').value = profile.name || '';
+
+    // Hiển thị avatar — ưu tiên ảnh tải lên, rồi emoji
+    const avatarEl = $('profileAvatar');
+    if (avatarEl) {
+      if (profile.custom_avatar) {
+        const url = profile.custom_avatar.startsWith('http')
+          ? profile.custom_avatar
+          : API.replace('/api', '') + profile.custom_avatar;
+        avatarEl.innerHTML = `<img src="${url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover"/><div class="avatar-upload-overlay">📷</div>`;
+        updateAvatarDisplay(url);
+      } else {
+        avatarEl.innerHTML = `${profile.avatar || '🎓'}<div class="avatar-upload-overlay">📷</div>`;
+      }
+    }
+
     selectedAvatar = profile.avatar || '🎓';
-    if (profile.exam_date) $('profileExamDate').value = profile.exam_date.split('T')[0];
-    $('profileTarget').value = profile.target_subject || '';
+    if (profile.exam_date && $('profileExamDate')) $('profileExamDate').value = profile.exam_date.split('T')[0];
+    if ($('profileTarget')) $('profileTarget').value = profile.target_subject || '';
 
     const level = profile.level || 1;
     const exp = profile.exp || 0;
