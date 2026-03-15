@@ -1782,15 +1782,59 @@ function renderCalendar() {
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const dayEvents = calendarEvents.filter(e => e.event_date && e.event_date.startsWith(dateStr));
     const isToday = today.getDate()===d && today.getMonth()===month && today.getFullYear()===year;
-    html += `<div class="cal-cell ${isToday?'today':''}" onclick="openAddEventModal('${dateStr}')">
+    const hasEvents = dayEvents.length > 0;
+
+    // Build event tooltip content
+    const tooltipContent = hasEvents ? dayEvents.map(e =>
+      `<div class="cal-tooltip-item" style="border-left:3px solid ${e.color||'var(--accent)'}">
+        <span class="cal-tooltip-time">${e.event_time ? e.event_time.substring(0,5) : ''}</span>
+        <span class="cal-tooltip-title">${escHtml(e.title)}</span>
+       </div>`
+    ).join('') : '';
+
+    html += `<div class="cal-cell ${isToday?'today':''} ${hasEvents?'has-events':''}"
+      onclick="handleCalCellClick(event, '${dateStr}', ${hasEvents})"
+      data-date="${dateStr}">
       <span class="cal-day-num">${d}</span>
       <div class="cal-events-dots">
-        ${dayEvents.slice(0,3).map(e=>`<div class="cal-dot" style="background:${e.color||'var(--accent)'}" title="${escHtml(e.title)}"></div>`).join('')}
+        ${dayEvents.slice(0,3).map(e=>`<div class="cal-dot" style="background:${e.color||'var(--accent)'}"></div>`).join('')}
+        ${dayEvents.length > 3 ? `<span class="cal-more">+${dayEvents.length-3}</span>` : ''}
       </div>
+      ${hasEvents ? `<div class="cal-event-popup" id="popup-${dateStr}">${tooltipContent}</div>` : ''}
     </div>`;
   }
   grid.innerHTML = html;
 }
+
+async function handleCalCellClick(event, dateStr, hasEvents) {
+  event.stopPropagation();
+
+  // Đóng tất cả popup khác đang mở
+  document.querySelectorAll('.cal-event-popup.show').forEach(p => {
+    if (p.id !== 'popup-' + dateStr) p.classList.remove('show');
+  });
+
+  if (hasEvents) {
+    // Toggle popup sự kiện
+    const popup = document.getElementById('popup-' + dateStr);
+    if (popup) {
+      const isOpen = popup.classList.contains('show');
+      popup.classList.toggle('show');
+      if (!isOpen) {
+        // Tự đóng sau 5 giây
+        setTimeout(() => popup.classList.remove('show'), 5000);
+      }
+    }
+  } else {
+    // Không có sự kiện → mở form thêm sự kiện
+    openAddEventModal(dateStr);
+  }
+}
+
+// Click bên ngoài đóng tất cả popup
+document.addEventListener('click', function() {
+  document.querySelectorAll('.cal-event-popup.show').forEach(p => p.classList.remove('show'));
+});
 
 async function renderUpcoming() {
   const list = $('upcomingList');
