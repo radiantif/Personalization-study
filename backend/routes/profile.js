@@ -47,7 +47,6 @@ async function uploadToCloudinary(buffer, mimetype, userId) {
     ['signature', signature],
     ['folder', folder],
     ['public_id', publicId],
-    ['transformation', 'w_200,h_200,c_fill,g_face,r_max,q_auto,f_auto'],
   ];
 
   let textPart = '';
