@@ -1028,13 +1028,35 @@ function selectAvatar(el) {
 async function loadSidebarProfile() {
   try {
     const p = await apiFetch('/profile');
-    $('avatarName').textContent = p.name || 'Student';
-    $('avatarLevel').textContent = `Lv.${p.level || 1}`;
-    $('avatarOrb', document.querySelector('.avatar-orb')); // ignore
-    document.querySelector('.avatar-orb').textContent = p.avatar || '🎓';
-    const expPct = ((p.exp || 0) % 100);
-    $('expFill').style.width = `${expPct}%`;
+
+    // Tên và cấp độ
+    if ($('avatarName')) $('avatarName').textContent = p.name || 'Student';
+    if ($('avatarLevel')) $('avatarLevel').textContent = `Lv.${p.level || 1}`;
+
+    // Ảnh đại diện — ưu tiên custom_avatar (ảnh tải lên), rồi emoji
+    const orb = document.querySelector('.avatar-orb');
+    if (orb) {
+      if (p.custom_avatar) {
+        // URL Cloudinary đã đầy đủ, không cần ghép thêm
+        const url = p.custom_avatar.startsWith('http')
+          ? p.custom_avatar
+          : API.replace('/api', '') + p.custom_avatar;
+        orb.innerHTML = `<img src="${url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" />`;
+      } else {
+        orb.textContent = p.avatar || '🎓';
+      }
+    }
+
+    // EXP bar
+    const expPct = (p.exp || 0) % 100;
+    if ($('expFill')) $('expFill').style.width = `${expPct}%`;
+
+    // Đếm ngược exam
     if (p.exam_date) startCountdown(p.exam_date);
+
+    // Cập nhật cached user
+    localStorage.setItem('sf_user', JSON.stringify(p));
+
   } catch { /* ignore */ }
 }
 
