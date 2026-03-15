@@ -157,6 +157,7 @@ CREATE TABLE IF NOT EXISTS study_rooms (
   owner_id    INT REFERENCES users(id) ON DELETE CASCADE,
   invite_code VARCHAR(10) UNIQUE NOT NULL,
   is_private  BOOLEAN DEFAULT FALSE,
+  password_hash VARCHAR(10),
   created_at  TIMESTAMPTZ DEFAULT NOW(),
   updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
@@ -194,3 +195,6 @@ CREATE TABLE IF NOT EXISTS roadmaps (
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_roadmaps_user ON roadmaps(user_id);
+
+-- Thêm cột password nếu chưa có (chạy nếu bảng đã tồn tại)
+ALTER TABLE study_rooms ADD COLUMN IF NOT EXISTS password_hash VARCHAR(10);

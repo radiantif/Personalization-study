@@ -12,7 +12,9 @@ function genCode() {
 router.get('/', async function(req, res) {
   try {
     const result = await pool.query(
-      `SELECT r.*, u.name as owner_name,
+      `SELECT r.id, r.name, r.subject, r.owner_id, r.invite_code, r.is_private, r.created_at, r.updated_at,
+       CASE WHEN r.password_hash IS NOT NULL THEN true ELSE false END as has_password,
+       u.name as owner_name,
        (SELECT COUNT(*) FROM room_members WHERE room_id=r.id) as member_count
        FROM study_rooms r
        JOIN users u ON r.owner_id=u.id
@@ -26,14 +28,15 @@ router.get('/', async function(req, res) {
 
 // POST create room
 router.post('/', async function(req, res) {
-  const { name, subject, is_private } = req.body;
+  const { name, subject, is_private, password } = req.body;
   if (!name) return res.status(400).json({ error: 'Cần tên phòng' });
   try {
     const code = genCode();
+    const passwordHash = password ? String(password).substring(0, 6) : null;
     const room = await pool.query(
-      `INSERT INTO study_rooms (name, subject, owner_id, invite_code, is_private)
-       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-      [name, subject||'Chung', req.user.id, code, is_private||false]
+      `INSERT INTO study_rooms (name, subject, owner_id, invite_code, is_private, password_hash)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [name, subject||'Chung', req.user.id, code, is_private||false, passwordHash]
     );
     // Owner tự join
     await pool.query(
@@ -48,9 +51,17 @@ router.post('/', async function(req, res) {
 router.post('/join', async function(req, res) {
   const { code } = req.body;
   if (!code) return res.status(400).json({ error: 'Cần mã phòng' });
+  const { password } = req.body;
   try {
     const room = await pool.query('SELECT * FROM study_rooms WHERE invite_code=$1', [code.toUpperCase()]);
     if (!room.rows.length) return res.status(404).json({ error: 'Mã phòng không tồn tại' });
+    // Check password if room has one
+    if (room.rows[0].password_hash) {
+      if (!password) return res.status(403).json({ error: 'Phòng này có mật khẩu', needs_password: true });
+      if (String(password) !== String(room.rows[0].password_hash)) {
+        return res.status(403).json({ error: 'Mật khẩu không đúng' });
+      }
+    }
     await pool.query(
       'INSERT INTO room_members (room_id, user_id, status) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING',
       [room.rows[0].id, req.user.id, 'studying']

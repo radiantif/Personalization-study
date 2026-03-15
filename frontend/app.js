@@ -3373,3 +3373,106 @@ function navigate(page) {
 document.querySelectorAll('.nav-item').forEach(item => {
   item.onclick = () => { requestAnimationFrame(() => navigate(item.dataset.page)); if (window.innerWidth <= 768) closeSidebar(); };
 });
+
+// ═══════════════════════════════════════════════════════
+// ROOM PASSWORD + UI UPDATES
+// ═══════════════════════════════════════════════════════
+
+/** Toggle hiện/ẩn input mật khẩu khi tạo phòng */
+function toggleRoomPassword() {
+  const cb = document.getElementById('roomHasPassword');
+  const input = document.getElementById('roomPassword');
+  if (input) input.style.display = cb?.checked ? 'block' : 'none';
+  if (cb?.checked && input) input.focus();
+}
+
+/** Override createRoom để gửi password */
+async function createRoom() {
+  const name = $('roomName').value.trim();
+  const subject = $('roomSubject').value.trim();
+  if (!name) return toast('Nhập tên phòng', 'error');
+
+  const hasPass = $('roomHasPassword')?.checked;
+  const password = hasPass ? $('roomPassword')?.value.trim() : null;
+  if (hasPass && (!password || password.length > 6)) {
+    return toast('Mật khẩu phải từ 1-6 chữ số', 'error');
+  }
+
+  try {
+    const room = await apiFetch('/rooms', {
+      method: 'POST',
+      body: JSON.stringify({ name, subject, password })
+    });
+    closeModal('createRoomModal');
+    $('roomName').value = ''; $('roomSubject').value = '';
+    if ($('roomPassword')) $('roomPassword').value = '';
+    if ($('roomHasPassword')) $('roomHasPassword').checked = false;
+    if ($('roomPassword')) $('roomPassword').style.display = 'none';
+    const passMsg = password ? ` 🔒 Mật khẩu: ${password}` : '';
+    toast(`Phòng "${name}" đã tạo! Mã: ${room.invite_code}${passMsg}`);
+    enterRoom(room.id);
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+/** Override joinRoom để xử lý password */
+async function joinRoom() {
+  const code = $('joinRoomCode').value.trim().toUpperCase();
+  if (!code || code.length !== 6) return toast('Nhập đúng mã 6 ký tự', 'error');
+
+  const password = $('joinRoomPassword')?.value.trim() || null;
+
+  try {
+    const room = await apiFetch('/rooms/join', {
+      method: 'POST',
+      body: JSON.stringify({ code, password })
+    });
+    closeModal('joinRoomModal');
+    $('joinRoomCode').value = '';
+    if ($('joinRoomPassword')) $('joinRoomPassword').value = '';
+    $('joinPasswordWrap').style.display = 'none';
+    toast(`Đã vào phòng: ${room.name}`);
+    enterRoom(room.id);
+  } catch (err) {
+    if (err.message.includes('mật khẩu') || err.message.includes('needs_password') || err.message.includes('Mật khẩu')) {
+      // Hiện ô nhập mật khẩu
+      $('joinPasswordWrap').style.display = 'block';
+      $('joinRoomPassword')?.focus();
+      toast('🔒 Phòng này có mật khẩu, vui lòng nhập', 'error');
+    } else {
+      toast(err.message, 'error');
+    }
+  }
+}
+
+/** Override loadRooms để hiện icon khóa */
+async function loadRooms() {
+  const list = $('roomsList');
+  if (!list) return;
+  list.innerHTML = '<div class="loading-state">Đang tải...</div>';
+  try {
+    const rooms = await apiFetch('/rooms');
+    if (!rooms.length) {
+      list.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+        <div class="es-icon">👥</div>
+        <div class="es-text">Chưa có phòng học nào.<br/>Tạo phòng mới hoặc nhập mã để tham gia!</div>
+      </div>`;
+      return;
+    }
+    list.innerHTML = rooms.map(r => `
+      <div class="room-card card" onclick="enterRoom(${r.id})">
+        <div class="rc-header">
+          <div>
+            <div class="rc-name">${escHtml(r.name)} ${r.has_password ? '🔒' : ''}</div>
+            <div class="rc-subject">${escHtml(r.subject||'Chung')}</div>
+          </div>
+          <span style="font-size:1.5rem">👥</span>
+        </div>
+        <div class="rc-members">👤 ${r.member_count||0} thành viên</div>
+        <div class="rc-code">Mã: <strong>${r.invite_code}</strong>${r.has_password ? ' · 🔒 Có mật khẩu' : ''}</div>
+        <div class="rc-actions">
+          <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();enterRoom(${r.id})">Vào phòng</button>
+          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();navigator.clipboard?.writeText('${r.invite_code}');toast('Đã copy mã: ${r.invite_code}')">📋 Mã</button>
+        </div>
+      </div>`).join('');
+  } catch { list.innerHTML = '<div class="loading-state">Lỗi tải phòng học</div>'; }
+}

@@ -66,9 +66,7 @@
     <a class="nav-item" data-page="ai">
       <span class="nav-icon">🤖</span><span class="nav-label">AI Tutor</span>
     </a>
-    <a class="nav-item" data-page="profile">
-      <span class="nav-icon">👤</span><span class="nav-label">Profile</span>
-    </a>
+
     <a class="nav-item" data-page="themes">
       <span class="nav-icon">🎨</span><span class="nav-label">Themes</span>
     </a>
@@ -567,7 +565,7 @@
     <div class="page-header">
       <h1 class="page-title">Profile</h1>
     </div>
-    <div class="profile-layout">
+    <div class="profile-layout" style="grid-template-columns:1fr">
       <div class="profile-card card">
         <div class="profile-avatar-wrap">
           <div class="profile-avatar" id="profileAvatar" onclick="openAvatarUpload()" title="Click để đổi ảnh">🎓
@@ -607,7 +605,7 @@
               <input type="text" id="profileTarget" class="input-field" placeholder="e.g. Math" />
             </div>
           </div>
-          <button class="btn btn-primary" onclick="saveProfile()">Save Profile</button>
+          <button class="btn btn-primary" onclick="saveProfile()">Lưu hồ sơ</button>
         </div>
       </div>
       <div class="profile-stats-card card">
@@ -636,10 +634,32 @@
           <div class="badge-item locked" title="Card Master — Create 50 flashcards">🃏</div>
         </div>
       </div>
+      <!-- Themes section inside profile -->
+      <div class="card" style="padding:1.5rem;margin-top:0" id="profileThemesCard">
+        <h3 style="font-family:var(--font-display);font-size:1rem;margin-bottom:1rem">🎨 Giao diện</h3>
+        <div class="themes-grid" style="padding:0">
+          <div class="theme-card active" data-theme="dark" onclick="applyTheme('dark', this)">
+            <div class="theme-preview tp-dark"><div class="tp-sidebar"></div><div class="tp-main"></div></div>
+            <div class="theme-info"><span class="theme-name">Dark Study</span><span class="theme-check">✓</span></div>
+          </div>
+          <div class="theme-card" data-theme="anime" onclick="applyTheme('anime', this)">
+            <div class="theme-preview tp-anime"><div class="tp-sidebar"></div><div class="tp-main"></div></div>
+            <div class="theme-info"><span class="theme-name">Anime Study</span></div>
+          </div>
+          <div class="theme-card" data-theme="library" onclick="applyTheme('library', this)">
+            <div class="theme-preview tp-library"><div class="tp-sidebar"></div><div class="tp-main"></div></div>
+            <div class="theme-info"><span class="theme-name">Library</span></div>
+          </div>
+          <div class="theme-card" data-theme="cyberpunk" onclick="applyTheme('cyberpunk', this)">
+            <div class="theme-preview tp-cyberpunk"><div class="tp-sidebar"></div><div class="tp-main"></div></div>
+            <div class="theme-info"><span class="theme-name">Cyberpunk</span></div>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
-  <!-- ── PAGE: THEMES ────────────────────────────────────────── -->
+  <!-- ── PAGE: THEMES (kept for compatibility) - hidden ────────────────────────────────────────── -->
   <section class="page" id="page-themes">
     <div class="page-header">
       <h1 class="page-title">Themes</h1>
@@ -823,8 +843,8 @@
   <section class="page" id="page-ocr">
     <div class="page-header">
       <div>
-        <h1 class="page-title">Deep OCR</h1>
-        <p class="page-sub">Trích xuất văn bản từ ảnh bài tập, tin nhắn, ghi chú</p>
+        <h1 class="page-title">Phân tích ảnh</h1>
+        <p class="page-sub">OCR • Giải bài tập • Scan & Lưu nhanh</p>
       </div>
     </div>
 
@@ -982,6 +1002,13 @@
         <div class="modal-header"><h2>Tạo phòng học</h2><button class="modal-close" onclick="closeModal('createRoomModal')">✕</button></div>
         <input type="text" id="roomName" class="input-field" placeholder="Tên phòng (vd: Ôn thi Toán THPT)" />
         <input type="text" id="roomSubject" class="input-field" placeholder="Môn học chính" />
+        <div class="room-password-wrap">
+          <label class="room-pass-toggle">
+            <input type="checkbox" id="roomHasPassword" onchange="toggleRoomPassword()" />
+            <span>🔒 Đặt mật khẩu phòng</span>
+          </label>
+          <input type="number" id="roomPassword" class="input-field" placeholder="Nhập 1–6 chữ số" min="0" max="999999" maxlength="6" style="display:none;letter-spacing:0.2em;font-size:1.1rem;text-align:center" />
+        </div>
         <div class="modal-footer">
           <button class="btn btn-ghost" onclick="closeModal('createRoomModal')">Huỷ</button>
           <button class="btn btn-primary" onclick="createRoom()">Tạo phòng</button>
@@ -992,6 +1019,9 @@
       <div class="modal-content card">
         <div class="modal-header"><h2>Nhập mã phòng</h2><button class="modal-close" onclick="closeModal('joinRoomModal')">✕</button></div>
         <input type="text" id="joinRoomCode" class="input-field" placeholder="Mã 6 ký tự (vd: A3F9B2)" style="text-transform:uppercase;letter-spacing:0.15em;font-size:1.2rem;text-align:center" maxlength="6" />
+        <div id="joinPasswordWrap" style="display:none">
+          <input type="number" id="joinRoomPassword" class="input-field" placeholder="Mật khẩu phòng" style="letter-spacing:0.2em;text-align:center" />
+        </div>
         <div class="modal-footer">
           <button class="btn btn-ghost" onclick="closeModal('joinRoomModal')">Huỷ</button>
           <button class="btn btn-primary" onclick="joinRoom()">Vào phòng</button>
