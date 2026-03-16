@@ -1010,12 +1010,36 @@
               <span id="micIcon">🎤</span>
               <span id="micLabel">Bật mic</span>
             </button>
+            <!-- Waveform canvas -->
+            <canvas id="micWaveCanvas" width="80" height="28" style="display:none;border-radius:4px;background:rgba(0,0,0,0.2)"></canvas>
+            <!-- Bars fallback (khi mic tắt) -->
             <div class="mic-visualizer" id="micVisualizer">
               <div class="mic-bar"></div><div class="mic-bar"></div>
               <div class="mic-bar"></div><div class="mic-bar"></div>
               <div class="mic-bar"></div>
             </div>
-            <span class="mic-status" id="micStatus">Tắt</span>
+            <!-- Settings button thay cho chữ Tắt -->
+            <button class="mic-settings-btn" id="micSettingsBtn" onclick="toggleMicSettings()" title="Cài đặt micro">⚙️</button>
+          </div>
+
+          <!-- Mic settings panel (ẩn mặc định) -->
+          <div class="mic-settings-panel" id="micSettingsPanel" style="display:none">
+            <div class="msp-header">
+              <span>🎙️ Cài đặt Microphone</span>
+              <button onclick="toggleMicSettings()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem">✕</button>
+            </div>
+            <div class="msp-row">
+              <label>Đầu vào mic</label>
+              <select id="micDeviceSelect" class="input-field" onchange="changeMicDevice(this.value)" style="font-size:0.78rem"></select>
+            </div>
+            <div class="msp-row">
+              <label>Ngưỡng phát hiện giọng nói</label>
+              <input type="range" id="micThreshold" min="0" max="50" value="10" oninput="updateMicThreshold(this.value)" style="width:100%;accent-color:var(--accent)" />
+              <span id="micThresholdVal" style="font-size:0.72rem;color:var(--accent)">10</span>
+            </div>
+            <div id="micSilenceWarning" style="display:none;font-size:0.75rem;color:#ff9f43;padding:0.4rem 0.6rem;background:rgba(255,159,67,0.1);border-radius:6px;border:1px solid rgba(255,159,67,0.3)">
+              ⚠️ Không phát hiện âm thanh — kiểm tra lại microphone
+            </div>
           </div>
 
           <div class="room-subject-selector">

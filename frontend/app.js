@@ -3713,3 +3713,273 @@ function switchOcrTab(tab) {
   // Stop camera if switching away from scan
   if (tab !== 'scan' && scanStream) stopCamera();
 }
+
+// ═══════════════════════════════════════════════════════
+// MIC ENHANCED — Waveform, Settings, Speaking Detection
+// ═══════════════════════════════════════════════════════
+
+let micThreshold = 10;        // Ngưỡng phát hiện giọng nói
+let silenceTimer = null;      // Timer kiểm tra im lặng
+let silenceCount = 0;         // Đếm số frame im lặng liên tiếp
+let micDeviceId = null;       // Device ID đang dùng
+
+/** Toggle settings panel */
+function toggleMicSettings() {
+  const panel = document.getElementById('micSettingsPanel');
+  if (!panel) return;
+  const isHidden = panel.style.display === 'none';
+  panel.style.display = isHidden ? 'flex' : 'none';
+  if (isHidden) loadMicDevices();
+}
+
+/** Tải danh sách thiết bị mic */
+async function loadMicDevices() {
+  const select = document.getElementById('micDeviceSelect');
+  if (!select) return;
+  try {
+    // Cần quyền trước mới liệt kê được devices
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const mics = devices.filter(d => d.kind === 'audioinput');
+    select.innerHTML = mics.map(d =>
+      `<option value="${d.deviceId}" ${d.deviceId === micDeviceId ? 'selected' : ''}>
+        ${d.label || 'Microphone ' + (mics.indexOf(d) + 1)}
+      </option>`
+    ).join('');
+    if (!mics.length) select.innerHTML = '<option>Không tìm thấy thiết bị</option>';
+  } catch {
+    select.innerHTML = '<option>Cần bật mic trước</option>';
+  }
+}
+
+/** Đổi thiết bị mic */
+async function changeMicDevice(deviceId) {
+  micDeviceId = deviceId;
+  if (micActive) {
+    // Khởi động lại với thiết bị mới
+    stopMic();
+    await startMic();
+  }
+}
+
+/** Cập nhật ngưỡng phát hiện */
+function updateMicThreshold(val) {
+  micThreshold = parseInt(val);
+  const display = document.getElementById('micThresholdVal');
+  if (display) display.textContent = val;
+}
+
+/** Override startMic với waveform canvas và device selection */
+async function startMic() {
+  try {
+    const constraints = {
+      audio: micDeviceId
+        ? { deviceId: { exact: micDeviceId } }
+        : { echoCancellation: true, noiseSuppression: true, sampleRate: 44100 }
+    };
+    micStream = await navigator.mediaDevices.getUserMedia(constraints);
+    micActive = true;
+
+    // Lấy device ID thực tế đang dùng
+    const track = micStream.getAudioTracks()[0];
+    if (track) {
+      const settings = track.getSettings();
+      micDeviceId = settings.deviceId;
+      loadMicDevices();
+    }
+
+    // Setup audio context + analyser
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioContext.createMediaStreamSource(micStream);
+    micAnalyser = audioContext.createAnalyser();
+    micAnalyser.fftSize = 256;
+    micAnalyser.smoothingTimeConstant = 0.7;
+    source.connect(micAnalyser);
+
+    // Chuyển sang canvas waveform
+    const micControls = document.querySelector('.mic-controls');
+    if (micControls) micControls.classList.add('canvas-active');
+    drawWaveform();
+    startSilenceDetection();
+
+    // Update UI
+    const btn = document.getElementById('micBtn');
+    const icon = document.getElementById('micIcon');
+    const label = document.getElementById('micLabel');
+    if (btn) btn.classList.add('active');
+    if (icon) icon.textContent = '🔴';
+    if (label) label.textContent = 'Tắt mic';
+
+    await updateRoomStatus('speaking');
+    toast('🎤 Mic đã bật');
+
+  } catch (err) {
+    if (err.name === 'NotAllowedError') {
+      toast('❌ Trình duyệt chưa cho phép dùng mic', 'error');
+    } else if (err.name === 'NotFoundError') {
+      toast('❌ Không tìm thấy microphone', 'error');
+    } else {
+      toast('❌ Lỗi mic: ' + err.message, 'error');
+    }
+  }
+}
+
+/** Vẽ waveform thời gian thực trên canvas */
+function drawWaveform() {
+  const canvas = document.getElementById('micWaveCanvas');
+  if (!canvas || !micAnalyser) return;
+
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width;
+  const H = canvas.height;
+  const bufferLength = micAnalyser.frequencyBinCount;
+  const dataArray = new Uint8Array(bufferLength);
+
+  function draw() {
+    if (!micActive) return;
+    micAnimFrame = requestAnimationFrame(draw);
+
+    micAnalyser.getByteTimeDomainData(dataArray);
+
+    // Background
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.fillRect(0, 0, W, H);
+
+    // Waveform line
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#4af0d4';
+    ctx.shadowColor = '#4af0d4';
+    ctx.shadowBlur = 4;
+    ctx.beginPath();
+
+    const sliceWidth = W / bufferLength;
+    let x = 0;
+
+    for (let i = 0; i < bufferLength; i++) {
+      const v = dataArray[i] / 128.0;
+      const y = (v * H) / 2;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+      x += sliceWidth;
+    }
+    ctx.lineTo(W, H / 2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+  draw();
+}
+
+/** Phát hiện im lặng kéo dài */
+function startSilenceDetection() {
+  if (silenceTimer) clearInterval(silenceTimer);
+  silenceCount = 0;
+
+  silenceTimer = setInterval(() => {
+    if (!micAnalyser || !micActive) return;
+
+    const dataArray = new Uint8Array(micAnalyser.frequencyBinCount);
+    micAnalyser.getByteFrequencyData(dataArray);
+    const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+
+    const warning = document.getElementById('micSilenceWarning');
+    const panel = document.getElementById('micSettingsPanel');
+
+    if (avg < micThreshold) {
+      silenceCount++;
+      // Sau 4 giây im lặng → hiện cảnh báo và mở settings
+      if (silenceCount >= 4) {
+        if (warning) warning.style.display = 'block';
+        if (panel) panel.style.display = 'flex';
+        loadMicDevices();
+      }
+    } else {
+      silenceCount = 0;
+      if (warning) warning.style.display = 'none';
+    }
+  }, 1000);
+}
+
+/** Override stopMic để dọn dẹp waveform */
+function stopMic() {
+  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  if (audioContext) { audioContext.close(); audioContext = null; }
+  if (micAnimFrame) { cancelAnimationFrame(micAnimFrame); micAnimFrame = null; }
+  if (silenceTimer) { clearInterval(silenceTimer); silenceTimer = null; }
+
+  micActive = false;
+  silenceCount = 0;
+
+  // Reset canvas
+  const canvas = document.getElementById('micWaveCanvas');
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Vẽ đường thẳng giữa khi tắt
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, canvas.height / 2);
+    ctx.lineTo(canvas.width, canvas.height / 2);
+    ctx.stroke();
+  }
+
+  // Reset UI
+  const micControls = document.querySelector('.mic-controls');
+  if (micControls) micControls.classList.remove('canvas-active');
+  const btn = document.getElementById('micBtn');
+  const icon = document.getElementById('micIcon');
+  const label = document.getElementById('micLabel');
+  const warning = document.getElementById('micSilenceWarning');
+  if (btn) btn.classList.remove('active');
+  if (icon) icon.textContent = '🎤';
+  if (label) label.textContent = 'Bật mic';
+  if (warning) warning.style.display = 'none';
+
+  updateRoomStatus('studying');
+}
+
+/** Override refreshRoom để thêm speaking border */
+async function refreshRoom() {
+  if (!currentRoomId) return;
+  try {
+    const room = await apiFetch('/rooms/' + currentRoomId);
+    $('roomDetailName').textContent = room.name;
+
+    const membersList = $('roomMembersList');
+    membersList.innerHTML = room.members.map(m => {
+      const isSpeaking = m.status === 'speaking';
+      const isMe = currentUser && m.id === currentUser.id;
+      const avatarHtml = m.custom_avatar
+        ? `<img src="${m.custom_avatar.startsWith('http') ? m.custom_avatar : API.replace('/api','') + m.custom_avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" />`
+        : (m.avatar || '👤');
+      return `<div class="room-member-item ${isSpeaking ? 'speaking' : ''}">
+        <div class="rmi-avatar">${avatarHtml}</div>
+        <div class="rmi-info">
+          <div class="rmi-name">
+            ${escHtml(m.name)}
+            ${isRoomAdmin && isMe ? '<span class="admin-badge">Admin</span>' : ''}
+          </div>
+          <div class="rmi-status ${isSpeaking ? 'speaking' : ''}">
+            ${isSpeaking ? '🎤 Đang nói' : m.study_subject ? '📚 ' + escHtml(m.study_subject) : '🟢 Đang học'}
+          </div>
+        </div>
+        ${isSpeaking ? '<div class="rmi-speaking"></div>' : ''}
+        <span style="font-size:0.65rem;color:var(--text-muted)">Lv.${m.level||1}</span>
+      </div>`;
+    }).join('');
+
+    // Render messages
+    const chatEl = $('roomChatMessages');
+    const wasAtBottom = chatEl.scrollHeight - chatEl.scrollTop <= chatEl.clientHeight + 50;
+    chatEl.innerHTML = room.messages.map(m => {
+      const isMe = currentUser && m.user_id === currentUser.id;
+      return `<div class="rcm-item ${isMe ? 'mine' : ''}">
+        <div class="rcm-bubble">
+          ${!isMe ? `<div class="rcm-name">${escHtml(m.sender_name)}</div>` : ''}
+          ${escHtml(m.content)}
+        </div>
+      </div>`;
+    }).join('');
+    if (wasAtBottom) chatEl.scrollTop = chatEl.scrollHeight;
+  } catch {}
+}

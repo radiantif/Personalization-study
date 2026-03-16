@@ -3538,3 +3538,91 @@ select.input-field option {
     max-width: 100%;
   }
 }
+
+/* ═══════════════════════════════════════════════════
+   MIC SETTINGS PANEL + SPEAKING INDICATOR
+═══════════════════════════════════════════════════ */
+
+/* Settings button */
+.mic-settings-btn {
+  margin-left: auto;
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--card-border);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition);
+  flex-shrink: 0;
+}
+.mic-settings-btn:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+/* Settings panel */
+.mic-settings-panel {
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 0.8rem;
+  margin-bottom: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  animation: fadeInUp 0.2s ease;
+}
+
+.msp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.msp-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.msp-row label {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Waveform canvas */
+#micWaveCanvas {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Override mic-visualizer to hide when canvas shown */
+.mic-controls.canvas-active .mic-visualizer {
+  display: none;
+}
+.mic-controls.canvas-active #micWaveCanvas {
+  display: block !important;
+}
+
+/* ── Speaking border indicator ─────────────────────── */
+.room-member-item {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.room-member-item.speaking {
+  border-color: #4af0d4 !important;
+  box-shadow: 0 0 10px rgba(74, 240, 212, 0.3);
+  background: rgba(74, 240, 212, 0.05);
+}
+
+.room-member-item.speaking .rmi-avatar {
+  box-shadow: 0 0 0 2px #4af0d4;
+}
