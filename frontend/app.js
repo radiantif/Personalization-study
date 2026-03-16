@@ -1300,21 +1300,7 @@ function updateAvatarDisplay(url) {
 }
 
 // ─── Init ─────────────────────────────────────────────
-async function init() {
-  loadSavedTheme();
-  initParticles();
-  setupFileDropZone();
-
-  // Check login
-  const authed = await checkAuth();
-  if (!authed) return;
-
-  // Load initial data
-  await loadSidebarProfile();
-  loadStats();
-}
-
-document.addEventListener('DOMContentLoaded', init);
+// init defined below
 // ═══════════════════════════════════════════════════════
 // EXTENDED FEATURES
 // ═══════════════════════════════════════════════════════
@@ -2210,46 +2196,11 @@ async function addMaterialRich() {
   } catch(err){ toast(err.message,'error'); }
 }
 
-// ─── NAVIGATE UPDATE ──────────────────────────────────
-const _origNavigate = navigate;
-function navigate(page) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  $(`page-${page}`)?.classList.add('active');
-  document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
-  setTimeout(() => {
-    if (page === 'tasks') loadTasks();
-    if (page === 'materials') { loadSubjects(); loadMaterials(); }
-    if (page === 'flashcards') loadFlashcards();
-    if (page === 'stats') loadStats();
-    if (page === 'profile') loadProfile();
-    if (page === 'ai') loadChatHistory();
-    if (page === 'calendar') loadCalendar();
-    if (page === 'quiz') loadQuizList();
-  }, 0);
-}
 
-// Re-register nav click with new navigate
-document.querySelectorAll('.nav-item').forEach(item => {
-  item.onclick = () => requestAnimationFrame(() => navigate(item.dataset.page));
-});
 
 // ─── INIT v2 ──────────────────────────────────────────
 const _origInit = init;
-async function init() {
-  loadSavedTheme();
-  initParticles();
-  setupFileDropZone();
-  initPWA();
-  initRichEditor();
-  const authed = await checkAuth();
-  if (!authed) return;
-  await loadSidebarProfile();
-  loadStats();
-  checkSharedDeck();
-}
-
-document.addEventListener('DOMContentLoaded', init);
+// init defined below
 
 // ─── Rich editor table insert ─────────────────────
 function insertTable() {
@@ -2575,48 +2526,7 @@ async function saveOcrAsNote() {
   }
 }
 
-// ── Cập nhật navigate để load OCR ─────────────────────
-const _prevNavigate = navigate;
-function navigate(page) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  $(`page-${page}`)?.classList.add('active');
-  document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
-  setTimeout(() => {
-    if (page === 'tasks') loadTasks();
-    if (page === 'materials') { loadSubjects(); loadMaterials(); }
-    if (page === 'flashcards') loadFlashcards();
-    if (page === 'stats') loadStats();
-    if (page === 'profile') loadProfile();
-    if (page === 'ai') loadChatHistory();
-    if (page === 'calendar') loadCalendar();
-    if (page === 'quiz') loadQuizList();
-    // OCR không cần load gì — đã sẵn sàng ngay
-  }, 0);
-}
 
-// Re-register nav clicks
-document.querySelectorAll('.nav-item').forEach(item => {
-  item.onclick = () => requestAnimationFrame(() => navigate(item.dataset.page));
-});
-
-// Thêm initOCR vào init
-const _prevInit2 = init;
-async function init() {
-  loadSavedTheme();
-  initParticles();
-  setupFileDropZone();
-  initPWA();
-  initRichEditor();
-  initOCR(); // ← Thêm OCR init
-  const authed = await checkAuth();
-  if (!authed) return;
-  await loadSidebarProfile();
-  loadStats();
-  checkSharedDeck();
-}
-
-document.addEventListener('DOMContentLoaded', init);
 
 // ═══════════════════════════════════════════════════════
 // COLLAPSIBLE SIDEBAR
@@ -3402,37 +3312,7 @@ function copyScanText() {
   navigator.clipboard?.writeText(text).then(() => toast('📋 Đã copy!'));
 }
 
-// ── Update navigate for new pages ────────────────────
-const _navigateFinal = navigate;
-function navigate(page) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  $(`page-${page}`)?.classList.add('active');
-  document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
 
-  // Stop room polling when leaving
-  if (page !== 'rooms' && roomPollInterval) { clearInterval(roomPollInterval); roomPollInterval = null; }
-  // Stop camera when leaving scan
-  if (page !== 'scan' && scanStream) stopCamera();
-
-  setTimeout(() => {
-    if (page === 'tasks') loadTasks();
-    if (page === 'materials') { loadSubjects(); loadMaterials(); }
-    if (page === 'flashcards') loadFlashcards();
-    if (page === 'stats') loadStats();
-    if (page === 'profile') loadProfile();
-    if (page === 'ai') loadChatHistory();
-    if (page === 'calendar') loadCalendar();
-    if (page === 'quiz') loadQuizList();
-    if (page === 'rooms') { exitRoom(); loadRooms(); }
-    if (page === 'roadmap') { $('roadmapDetail').style.display='none'; $('roadmapList').style.display='block'; loadRoadmapList(); }
-    if (page === 'games') { flashcards.length || apiFetch('/flashcards').then(d => flashcards = d).catch(()=>{}); }
-  }, 0);
-}
-
-document.querySelectorAll('.nav-item').forEach(item => {
-  item.onclick = () => { requestAnimationFrame(() => navigate(item.dataset.page)); if (window.innerWidth <= 768) closeSidebar(); };
-});
 
 // ═══════════════════════════════════════════════════════
 // ROOM PASSWORD + UI UPDATES
