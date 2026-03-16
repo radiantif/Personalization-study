@@ -51,24 +51,73 @@ const toast = (msg, type = 'success') => {
 
 
 
-// ─── Navigation ───────────────────────────────────────
-function navigate(page) {
+// ─── Navigation với URL routing ──────────────────────
+const VALID_PAGES = [
+  'home','tasks','materials','flashcards','stats','ai',
+  'calendar','quiz','ocr','rooms','roadmap','games','profile','themes'
+];
+
+function navigate(page, pushState = true) {
+  if (!page || !$('page-' + page)) page = 'home';
+
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   $(`page-${page}`)?.classList.add('active');
   document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
 
+  // Cập nhật URL — dùng /page-name hoặc / cho home
+  if (pushState) {
+    const url = page === 'home' ? '/' : '/' + page;
+    window.history.pushState({ page }, '', url);
+  }
+  // Cập nhật title trang
+  const titles = {
+    home: 'StudyFlow', tasks: 'Tasks · StudyFlow',
+    materials: 'Tài liệu · StudyFlow', flashcards: 'Flashcards · StudyFlow',
+    stats: 'Thống kê · StudyFlow', ai: 'AI Tutor · StudyFlow',
+    calendar: 'Lịch học · StudyFlow', quiz: 'Quiz AI · StudyFlow',
+    ocr: 'Phân tích ảnh · StudyFlow', rooms: 'Phòng học · StudyFlow',
+    roadmap: 'Lộ trình · StudyFlow', games: 'Mini Games · StudyFlow',
+    profile: 'Hồ sơ · StudyFlow',
+  };
+  document.title = titles[page] || 'StudyFlow';
+
   // Page-specific loads
-  if (page === 'tasks') loadTasks();
-  if (page === 'materials') { loadSubjects(); loadMaterials(); }
-  if (page === 'flashcards') loadFlashcards();
-  if (page === 'stats') loadStats();
-  if (page === 'profile') loadProfile();
-  if (page === 'ai') loadChatHistory();
+  setTimeout(() => {
+    if (page === 'tasks') loadTasks();
+    if (page === 'materials') { loadSubjects(); loadMaterials(); }
+    if (page === 'flashcards') loadFlashcards();
+    if (page === 'stats') loadStats();
+    if (page === 'profile') loadProfile();
+    if (page === 'ai') loadChatHistory();
+    if (page === 'calendar') loadCalendar();
+    if (page === 'quiz') loadQuizList();
+    if (page === 'rooms') { exitRoom(); loadRooms(); }
+    if (page === 'roadmap') {
+      const d = $('roadmapDetail'); const l = $('roadmapList');
+      if (d) d.style.display = 'none';
+      if (l) l.style.display = 'block';
+      loadRoadmapList();
+    }
+  }, 0);
+}
+
+// Xử lý nút Back/Forward của trình duyệt
+window.addEventListener('popstate', function(e) {
+  const page = e.state?.page || getPageFromURL();
+  navigate(page, false);
+});
+
+// Lấy page từ URL hiện tại
+function getPageFromURL() {
+  const path = window.location.pathname.replace('/', '').split('/')[0];
+  return VALID_PAGES.includes(path) ? path : 'home';
 }
 
 document.querySelectorAll('.nav-item').forEach(item => {
-  item.addEventListener('click', () => navigate(item.dataset.page));
+  item.addEventListener('click', () => {
+    requestAnimationFrame(() => navigate(item.dataset.page));
+  });
 });
 
 // ─── Particles on Home ───────────────────────────────
@@ -2716,6 +2765,15 @@ async function init() {
   await loadSidebarProfile();
   loadStats();
   checkSharedDeck();
+
+  // Đọc URL khi load trang lần đầu
+  const initialPage = getPageFromURL();
+  if (initialPage !== 'home') {
+    navigate(initialPage, false);
+  } else {
+    // Set initial state cho home
+    window.history.replaceState({ page: 'home' }, '', window.location.pathname);
+  }
 }
 
 document.addEventListener('DOMContentLoaded', init);
