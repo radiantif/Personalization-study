@@ -33,10 +33,17 @@ router.post('/generate', async function(req, res) {
   const { subject, topic, count = 5 } = req.body;
   if (!topic) return res.status(400).json({ error: 'Cần có chủ đề' });
 
-  const prompt = `Tạo ${count} câu hỏi trắc nghiệm bằng tiếng Việt về "${topic}" môn ${subject || 'chung'}.
-Trả về ĐÚNG format JSON này, không thêm text nào khác ngoài JSON:
-{"title":"Tên quiz ngắn gọn","questions":[{"question":"Câu hỏi?","options":["A. lựa chọn 1","B. lựa chọn 2","C. lựa chọn 3","D. lựa chọn 4"],"correct":0,"explanation":"Giải thích ngắn gọn"}]}
-correct = index đáp án đúng (0=A,1=B,2=C,3=D)`;
+  const prompt = `Tạo ${count} câu hỏi trắc nghiệm bằng tiếng Việt về chủ đề "${topic}" môn ${subject || 'chung'}.
+
+QUAN TRỌNG: Chỉ trả về JSON thuần túy, KHÔNG có text trước hoặc sau, KHÔNG có markdown, KHÔNG có \`\`\`.
+
+Format JSON bắt buộc:
+{"title":"Tên quiz","questions":[{"question":"Câu hỏi?","options":["A. lựa chọn 1","B. lựa chọn 2","C. lựa chọn 3","D. lựa chọn 4"],"correct":0,"explanation":"Giải thích"}]}
+
+Lưu ý:
+- "correct" là số nguyên: 0=A, 1=B, 2=C, 3=D
+- Mỗi options phải bắt đầu bằng "A. ", "B. ", "C. ", "D. "
+- Chỉ trả về JSON, không thêm gì khác`;
 
   try {
     let quizData = null;
@@ -48,8 +55,24 @@ correct = index đáp án đúng (0=A,1=B,2=C,3=D)`;
       });
       const d = await r.json();
       const text = d.choices?.[0]?.message?.content || '';
-      const m = text.match(/\{[\s\S]*\}/);
-      if (m) quizData = JSON.parse(m[0]);
+      // Thử nhiều cách parse khác nhau
+      let jsonStr = null;
+      // Tìm JSON block trong markdown code fence
+      const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (fenceMatch) jsonStr = fenceMatch[1].trim();
+      // Hoặc tìm { ... } trực tiếp
+      if (!jsonStr) {
+        const objMatch = text.match(/\{[\s\S]*\}/);
+        if (objMatch) jsonStr = objMatch[0];
+      }
+      if (jsonStr) {
+        try { quizData = JSON.parse(jsonStr); }
+        catch (parseErr) {
+          // Thử clean JSON: xóa trailing comma
+          const cleaned = jsonStr.replace(/,\s*([}\]])/g, '$1');
+          quizData = JSON.parse(cleaned);
+        }
+      }
     }
     if (!quizData) return res.status(500).json({ error: 'Không thể tạo quiz. Kiểm tra GROQ_API_KEY.' });
 
