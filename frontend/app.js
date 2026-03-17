@@ -28,6 +28,9 @@ let selectedIcon = '📁';
 let selectedAvatar = '🎓';
 let profile = null;
 let countdownInterval = null;
+let currentQuiz = null;
+let quizAnswers = [];
+let quizStartTime = null;
 
 // ─── Anti DevTools (basic) ────────────────────────────
 document.addEventListener('keydown', function(e) {
@@ -1712,7 +1715,6 @@ async function genQuiz() {
   } catch (err) { toast(err.message,'error'); if (result) result.innerHTML=''; }
 }
 
-let quizAnswers = {};
 function renderQuiz(questions, container) {
   quizAnswers = {};
   container.innerHTML = questions.map((q,qi) => `
