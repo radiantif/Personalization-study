@@ -28,64 +28,149 @@ router.get('/:id', async function(req, res) {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+/**
+ * Cố gắng parse JSON từ text AI trả về
+ * Xử lý nhiều trường hợp: JSON thuần, có markdown fence, có text thừa
+ */
+function extractJSON(text) {
+  if (!text) return null;
+
+  // 1. Thử parse thẳng
+  try { return JSON.parse(text.trim()); } catch {}
+
+  // 2. Tìm trong markdown code fence ```json ... ```
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) {
+    try { return JSON.parse(fenceMatch[1].trim()); } catch {}
+  }
+
+  // 3. Tìm object { ... } đầu tiên
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start !== -1 && end !== -1 && end > start) {
+    const jsonStr = text.slice(start, end + 1);
+    try { return JSON.parse(jsonStr); } catch {
+      // 4. Clean JSON: xóa trailing comma, fix quotes
+      try {
+        const cleaned = jsonStr
+          .replace(/,\s*([}\]])/g, '$1')  // trailing comma
+          .replace(/([{,]\s*)(\w+):/g, '$1"$2":'); // unquoted keys
+        return JSON.parse(cleaned);
+      } catch {}
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Parse quiz từ text AI kể cả khi AI không trả JSON
+ * Fallback: tự tạo cấu trúc từ text thô
+ */
+function parseQuizFromText(text, topic, count) {
+  const quizData = extractJSON(text);
+  if (quizData && quizData.questions && quizData.questions.length > 0) {
+    return quizData;
+  }
+
+  // Fallback: tạo quiz đơn giản nếu AI không trả JSON
+  console.warn('AI did not return valid JSON, using fallback structure');
+  return {
+    title: `Quiz: ${topic}`,
+    questions: [{
+      question: `Không thể tạo quiz tự động. Vui lòng thử lại với chủ đề cụ thể hơn.`,
+      options: ['A. Thử lại', 'B. Đổi chủ đề', 'C. Kiểm tra API', 'D. Liên hệ admin'],
+      correct: 0,
+      explanation: `AI trả về: ${text.substring(0, 100)}...`
+    }]
+  };
+}
+
 // POST generate quiz with AI
 router.post('/generate', async function(req, res) {
   const { subject, topic, count = 5 } = req.body;
   if (!topic) return res.status(400).json({ error: 'Cần có chủ đề' });
 
-  const prompt = `Tạo ${count} câu hỏi trắc nghiệm bằng tiếng Việt về chủ đề "${topic}" môn ${subject || 'chung'}.
+  // Prompt rất đơn giản và rõ ràng để tránh AI trả text thừa
+  const prompt = `Tạo ${count} câu hỏi trắc nghiệm về "${topic}"${subject ? ' môn ' + subject : ''}.
 
-QUAN TRỌNG: Chỉ trả về JSON thuần túy, KHÔNG có text trước hoặc sau, KHÔNG có markdown, KHÔNG có \`\`\`.
+Trả về JSON theo đúng mẫu này:
+{
+  "title": "Quiz về ${topic}",
+  "questions": [
+    {
+      "question": "Câu hỏi ở đây?",
+      "options": ["A. đáp án 1", "B. đáp án 2", "C. đáp án 3", "D. đáp án 4"],
+      "correct": 0,
+      "explanation": "Giải thích ngắn"
+    }
+  ]
+}
 
-Format JSON bắt buộc:
-{"title":"Tên quiz","questions":[{"question":"Câu hỏi?","options":["A. lựa chọn 1","B. lựa chọn 2","C. lựa chọn 3","D. lựa chọn 4"],"correct":0,"explanation":"Giải thích"}]}
-
-Lưu ý:
-- "correct" là số nguyên: 0=A, 1=B, 2=C, 3=D
-- Mỗi options phải bắt đầu bằng "A. ", "B. ", "C. ", "D. "
-- Chỉ trả về JSON, không thêm gì khác`;
+Chú ý: correct là số (0=A, 1=B, 2=C, 3=D). Chỉ trả JSON, không có text khác.`;
 
   try {
-    let quizData = null;
-    if (process.env.GROQ_API_KEY) {
-      const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + process.env.GROQ_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], max_tokens: 2000, temperature: 0.5 })
-      });
-      const d = await r.json();
-      const text = d.choices?.[0]?.message?.content || '';
-      // Thử nhiều cách parse khác nhau
-      let jsonStr = null;
-      // Tìm JSON block trong markdown code fence
-      const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (fenceMatch) jsonStr = fenceMatch[1].trim();
-      // Hoặc tìm { ... } trực tiếp
-      if (!jsonStr) {
-        const objMatch = text.match(/\{[\s\S]*\}/);
-        if (objMatch) jsonStr = objMatch[0];
-      }
-      if (jsonStr) {
-        try { quizData = JSON.parse(jsonStr); }
-        catch (parseErr) {
-          // Thử clean JSON: xóa trailing comma
-          const cleaned = jsonStr.replace(/,\s*([}\]])/g, '$1');
-          quizData = JSON.parse(cleaned);
-        }
-      }
-    }
-    if (!quizData) return res.status(500).json({ error: 'Không thể tạo quiz. Kiểm tra GROQ_API_KEY.' });
+    if (!process.env.GROQ_API_KEY) return res.status(503).json({ error: 'Cần GROQ_API_KEY' });
 
-    const quiz = await pool.query('INSERT INTO quizzes (user_id,title,subject) VALUES ($1,$2,$3) RETURNING *',
-      [req.user.id, quizData.title || `Quiz: ${topic}`, subject || 'Chung']);
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + process.env.GROQ_API_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: 'Bạn là API trả về JSON. Chỉ trả về JSON thuần túy, không có text, không có markdown, không có giải thích.'
+          },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 3000,
+        temperature: 0.3,
+        response_format: { type: 'json_object' } // Force JSON mode nếu model hỗ trợ
+      })
+    });
+
+    const d = await r.json();
+    if (d.error) return res.status(500).json({ error: 'Groq: ' + d.error.message });
+
+    const rawText = d.choices?.[0]?.message?.content || '';
+    console.log('Raw AI response (first 200):', rawText.substring(0, 200));
+
+    const quizData = parseQuizFromText(rawText, topic, count);
+
+    // Lưu vào DB
+    const quiz = await pool.query(
+      'INSERT INTO quizzes (user_id,title,subject) VALUES ($1,$2,$3) RETURNING *',
+      [req.user.id, quizData.title || 'Quiz: ' + topic, subject || 'Chung']
+    );
     const qid = quiz.rows[0].id;
+
     for (const q of quizData.questions) {
-      await pool.query('INSERT INTO quiz_questions (quiz_id,question,options,correct_index,explanation) VALUES ($1,$2,$3,$4,$5)',
-        [qid, q.question, JSON.stringify(q.options), q.correct, q.explanation || '']);
+      // Đảm bảo options là array
+      let options = q.options;
+      if (!Array.isArray(options)) {
+        options = ['A. ?', 'B. ?', 'C. ?', 'D. ?'];
+      }
+      // Đảm bảo correct là số
+      let correct = parseInt(q.correct);
+      if (isNaN(correct)) correct = 0;
+
+      await pool.query(
+        'INSERT INTO quiz_questions (quiz_id,question,options,correct_index,explanation) VALUES ($1,$2,$3,$4,$5)',
+        [qid, q.question || '?', JSON.stringify(options), correct, q.explanation || '']
+      );
     }
+
     const questions = await pool.query('SELECT * FROM quiz_questions WHERE quiz_id=$1 ORDER BY id', [qid]);
     res.status(201).json({ ...quiz.rows[0], questions: questions.rows });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+
+  } catch (err) {
+    console.error('Quiz generate error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // DELETE quiz
@@ -100,8 +185,10 @@ router.delete('/:id', async function(req, res) {
 router.post('/:id/result', async function(req, res) {
   const { score, total, time_seconds } = req.body;
   try {
-    await pool.query('INSERT INTO quiz_results (quiz_id,user_id,score,total,time_seconds) VALUES ($1,$2,$3,$4,$5)',
-      [req.params.id, req.user.id, score, total, time_seconds || 0]);
+    await pool.query(
+      'INSERT INTO quiz_results (quiz_id,user_id,score,total,time_seconds) VALUES ($1,$2,$3,$4,$5)',
+      [req.params.id, req.user.id, score, total, time_seconds || 0]
+    );
     const exp = Math.floor((score / total) * 20);
     await pool.query('UPDATE users SET exp=exp+$1 WHERE id=$2', [exp, req.user.id]);
     res.json({ success: true, exp_gained: exp });
