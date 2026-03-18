@@ -28,9 +28,6 @@ let selectedIcon = '📁';
 let selectedAvatar = '🎓';
 let profile = null;
 let countdownInterval = null;
-let currentQuiz = null;
-let quizAnswers = [];
-let quizStartTime = null;
 
 // ─── Anti DevTools (basic) ────────────────────────────
 document.addEventListener('keydown', function(e) {
@@ -485,7 +482,7 @@ async function addMaterial() {
       if (title) formData.append('title', title);
       if (subject_id) formData.append('subject_id', subject_id);
 
-      const res = await fetch(`${API}/materials`, { method: 'POST', body: formData });
+      const res = await fetch(`${API}/materials`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + getToken() }, body: formData });
       if (!res.ok) throw new Error('Upload failed');
     }
     closeModal('addMaterialModal');
@@ -1715,8 +1712,9 @@ async function genQuiz() {
   } catch (err) { toast(err.message,'error'); if (result) result.innerHTML=''; }
 }
 
+let pageQuizAnswers = {};
 function renderQuiz(questions, container) {
-  quizAnswers = {};
+  pageQuizAnswers = {};
   container.innerHTML = questions.map((q,qi) => `
     <div class="quiz-item" id="quiz-${qi}">
       <div class="quiz-q"><span class="quiz-num">${qi+1}</span>${escHtml(q.question)}</div>
@@ -1728,7 +1726,7 @@ function renderQuiz(questions, container) {
 }
 
 function answerQuiz(qi, oi, correct, explanation) {
-  quizAnswers[qi] = oi;
+  pageQuizAnswers[qi] = oi;
   const item = $(`quiz-${qi}`);
   if (!item) return;
   item.querySelectorAll('.quiz-opt').forEach((btn, i) => {
@@ -1746,7 +1744,7 @@ function answerQuiz(qi, oi, correct, explanation) {
 
 function scoreQuiz(total) {
   const correct = Object.values(quizAnswers).filter((a,i) => a === parseInt(Object.keys(quizAnswers)[i])).length;
-  const score = Object.entries(quizAnswers).filter(([qi, ans]) => {
+  const score = Object.entries(pageQuizAnswers).filter(([qi, ans]) => {
     const item = $(`quiz-${qi}`);
     return item?.querySelector('.quiz-opt.correct')?.classList.contains('quiz-opt');
   }).length;

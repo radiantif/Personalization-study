@@ -3,15 +3,19 @@
   "short_name": "StudyFlow",
   "description": "Ứng dụng học tập thông minh với AI Tutor, Flashcards và Quiz",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0a0b14",
   "theme_color": "#7c6fff",
   "orientation": "any",
+  "lang": "vi",
   "icons": [
-    { "src": "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f4da.png", "sizes": "72x72", "type": "image/png" },
-    { "src": "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f4da.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f4da.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%237c6fff'/><text y='75' x='10' font-size='75'>📚</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
   ],
-  "categories": ["education", "productivity"],
-  "lang": "vi"
+  "categories": ["education", "productivity"]
 }
