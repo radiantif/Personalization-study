@@ -2054,7 +2054,12 @@ async function submitQuiz() {
     <button class="btn btn-ghost" onclick="exitQuiz()" style="margin-left:1rem">Xem lại</button>
   </div>`;
 
-  try { await apiFetch(`/quiz/${currentQuiz.id}/result`, { method:'POST', body:JSON.stringify({ score, total:currentQuiz.questions.length, time_seconds:timeSec }) }); } catch {}
+  try {
+    await apiFetch(`/quiz/${currentQuiz.id}/result`, {
+      method:'POST',
+      body:JSON.stringify({ answers: quizAnswers, time_seconds: timeSec })
+    });
+  } catch {}
 }
 
 function exitQuiz() {

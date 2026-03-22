@@ -8,6 +8,9 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const sharp = require('sharp');
+const Tesseract = require('tesseract.js');
+
+const MAX_PROCESSED_BYTES = 4 * 1024 * 1024; // 4MB after preprocessing
 
 // ── Multer: nhận ảnh vào memory ──────────────────────
 const upload = multer({
@@ -115,7 +118,6 @@ VÍ DỤ OUTPUT ĐÚNG:
  * Dùng khi không có Groq API key
  */
 async function ocrWithTesseract(imageBuffer) {
-  const Tesseract = require('tesseract.js');
   const { data: { text } } = await Tesseract.recognize(
     imageBuffer,
     'vie+eng', // Nhận diện cả tiếng Việt lẫn tiếng Anh
@@ -167,7 +169,14 @@ router.post('/', upload.single('image'), async function(req, res) {
       processedBuffer = req.file.buffer;
     }
 
-    // Bước 2: OCR — thử Groq Vision trước
+    // Bước 2: Kiểm tra kích thước trước khi gửi API
+    if (processedBuffer.length > MAX_PROCESSED_BYTES) {
+      return res.status(413).json({
+        error: `Ảnh quá lớn để xử lý (${Math.round(processedBuffer.length/1024/1024*10)/10}MB). Tối đa 4MB sau xử lý.`
+      });
+    }
+
+    // Bước 3: OCR — thử Groq Vision trước
     let rawText = null;
     let method = 'unknown';
 
@@ -182,7 +191,7 @@ router.post('/', upload.single('image'), async function(req, res) {
       }
     }
 
-    // Bước 3: Fallback Tesseract nếu Groq thất bại
+    // Bước 4: Fallback Tesseract nếu Groq thất bại
     if (!rawText) {
       try {
         console.log('Falling back to Tesseract.js...');
@@ -194,7 +203,7 @@ router.post('/', upload.single('image'), async function(req, res) {
       }
     }
 
-    // Bước 4: Làm sạch văn bản
+    // Bước 5: Làm sạch văn bản
     const cleanedText = cleanText(rawText || '');
 
     if (!cleanedText) {
@@ -204,7 +213,7 @@ router.post('/', upload.single('image'), async function(req, res) {
       });
     }
 
-    // Bước 5: Trả về kết quả
+    // Bước 6: Trả về kết quả
     res.json({
       text: cleanedText,
       method,

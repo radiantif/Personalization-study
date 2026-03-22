@@ -15,41 +15,56 @@ router.get('/', async function(req, res) {
 
 router.post('/', async function(req, res) {
   const { title, subject, deadline } = req.body;
-  if (!title) return res.status(400).json({ error: 'Title is required' });
+  if (!title || typeof title !== 'string' || title.trim().length < 1)
+    return res.status(400).json({ error: 'Cần tiêu đề task' });
+  if (title.length > 500) return res.status(400).json({ error: 'Tiêu đề tối đa 500 ký tự' });
   try {
     const result = await pool.query(
       `INSERT INTO tasks (user_id, title, subject, deadline, completed, sort_order)
-       VALUES ($1, $2, $3, $4, false, (SELECT COALESCE(MAX(sort_order),0)+1 FROM tasks WHERE user_id=$1))
+       VALUES ($1,$2,$3,$4,false,(SELECT COALESCE(MAX(sort_order),0)+1 FROM tasks WHERE user_id=$1))
        RETURNING *`,
-      [req.user.id, title, subject || null, deadline || null]
+      [req.user.id, title.trim(), subject || null, deadline || null]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Bulk reorder — fix: always release client, use for...of
 router.put('/reorder/bulk', async function(req, res) {
   const { tasks } = req.body;
+  if (!Array.isArray(tasks) || tasks.length === 0)
+    return res.status(400).json({ error: 'Dữ liệu không hợp lệ' });
+  const client = await pool.connect();
   try {
-    const client = await pool.connect();
     await client.query('BEGIN');
-    for (var i = 0; i < tasks.length; i++) {
-      await client.query('UPDATE tasks SET sort_order=$1 WHERE id=$2 AND user_id=$3', [tasks[i].sort_order, tasks[i].id, req.user.id]);
+    for (const task of tasks) {
+      if (!task.id || task.sort_order === undefined) continue;
+      await client.query(
+        'UPDATE tasks SET sort_order=$1 WHERE id=$2 AND user_id=$3',
+        [task.sort_order, task.id, req.user.id]
+      );
     }
     await client.query('COMMIT');
-    client.release();
-    res.json({ message: 'Reordered' });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    res.json({ message: 'Đã sắp xếp lại' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release(); // always runs — even on error
+  }
 });
 
 router.put('/:id', async function(req, res) {
   const { title, subject, deadline, completed, sort_order } = req.body;
+  if (title !== undefined && (typeof title !== 'string' || title.trim().length < 1))
+    return res.status(400).json({ error: 'Tiêu đề không hợp lệ' });
   try {
     const result = await pool.query(
       `UPDATE tasks SET title=$1,subject=$2,deadline=$3,completed=$4,sort_order=$5,updated_at=NOW()
        WHERE id=$6 AND user_id=$7 RETURNING *`,
-      [title, subject, deadline, completed, sort_order, req.params.id, req.user.id]
+      [title, subject, deadline || null, completed, sort_order, req.params.id, req.user.id]
     );
-    if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
+    if (!result.rows.length) return res.status(404).json({ error: 'Không tìm thấy' });
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -60,7 +75,7 @@ router.patch('/:id/toggle', async function(req, res) {
       'UPDATE tasks SET completed=NOT completed, updated_at=NOW() WHERE id=$1 AND user_id=$2 RETURNING *',
       [req.params.id, req.user.id]
     );
-    if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
+    if (!result.rows.length) return res.status(404).json({ error: 'Không tìm thấy' });
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -68,7 +83,7 @@ router.patch('/:id/toggle', async function(req, res) {
 router.delete('/:id', async function(req, res) {
   try {
     await pool.query('DELETE FROM tasks WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
-    res.json({ message: 'Deleted' });
+    res.json({ message: 'Đã xóa' });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
