@@ -394,7 +394,7 @@ async function loadMaterials() {
       return;
     }
     grid.innerHTML = mats.map(m => `
-      <div class="material-card" onclick="viewMaterial(${m.id}, '${escAttr(m.title)}', '${escAttr(m.file_type)}', '${escAttr(m.file_url || '')}', '${escAttr(m.content || '')}')">
+      <div class="material-card" onclick="viewMaterial(${m.id}, '${escAttr(m.title)}', '${escAttr(m.file_type)}', '${escAttr(m.file_url || '')}', '${escAttr(m.content_html || m.content || '')}')">
         <div class="mat-type-icon">${matIcon(m.file_type)}</div>
         <div class="mat-title">${escHtml(m.title)}</div>
         ${m.subject_name ? `<span class="mat-subject-badge" style="background:${m.subject_color}22;color:${m.subject_color}">${escHtml(m.subject_name)}</span>` : ''}
@@ -414,10 +414,41 @@ function matIcon(type) {
 
 function viewMaterial(id, title, type, fileUrl, content) {
   if (fileUrl) {
-    window.open(`${API.replace('/api','')}${fileUrl}`, '_blank');
-  } else {
-    alert(`📝 ${title}\n\n${content || '(no content)'}`);
+    // Cloudinary URL đã đầy đủ (https://...), không cần ghép thêm domain
+    const url = fileUrl.startsWith('http') ? fileUrl : API.replace('/api','') + fileUrl;
+    window.open(url, '_blank');
+    return;
   }
+  // Hiện modal nội dung thay vì alert
+  showMaterialModal(title, type, content);
+}
+
+function showMaterialModal(title, type, content) {
+  // Tạo modal nếu chưa có
+  let modal = document.getElementById('matViewModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'matViewModal';
+    modal.className = 'modal';
+    modal.innerHTML = `
+      <div class="modal-content card" style="max-width:680px;max-height:80vh;display:flex;flex-direction:column">
+        <div class="modal-header">
+          <h2 id="matViewTitle" style="font-size:1rem;font-weight:700"></h2>
+          <button class="modal-close" onclick="closeModal('matViewModal')">✕</button>
+        </div>
+        <div id="matViewBody" style="overflow-y:auto;flex:1;padding:0.5rem 0;font-size:0.875rem;line-height:1.7;color:var(--text)"></div>
+      </div>`;
+    document.body.appendChild(modal);
+  }
+  document.getElementById('matViewTitle').textContent = (type === 'pdf' ? '📄 ' : '📝 ') + title;
+  const body = document.getElementById('matViewBody');
+  if (!content || !content.trim()) {
+    body.innerHTML = '<p style="color:var(--text-muted);font-style:italic">Không có nội dung văn bản. File này là tài liệu đính kèm.</p>';
+  } else {
+    // Render HTML nếu có, còn lại hiện text
+    body.innerHTML = content.includes('<') ? content : content.split('\n').map(l => `<p style="margin:0 0 0.4rem">${escHtml(l)}</p>`).join('');
+  }
+  modal.classList.add('open');
 }
 
 async function deleteMaterial(id) {
