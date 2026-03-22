@@ -28,14 +28,17 @@ async function uploadToCloudinary(buffer, originalname, mimetype) {
     return null;
   }
 
-  const ext = path.extname(originalname).toLowerCase().replace('.', '');
   const isPDF = mimetype === 'application/pdf';
-  const resourceType = isPDF ? 'raw' : 'image';
+  // Dùng 'auto' để Cloudinary tự chọn resource type
+  // PDF sẽ được lưu dưới dạng image/pdf accessible qua URL
+  const resourceType = 'auto';
   const boundary = '----Boundary' + crypto.randomBytes(8).toString('hex');
 
   const fields = [
     ['upload_preset', uploadPreset],
     ['folder', 'studyflow/materials'],
+    // Với PDF: dùng flags để có thể truy cập công khai
+    ...(isPDF ? [['flags', 'attachment']] : []),
   ];
 
   let textPart = '';
@@ -54,7 +57,7 @@ async function uploadToCloudinary(buffer, originalname, mimetype) {
   ]);
 
   const response = await fetch(
-    `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,
+    `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
     {
       method: 'POST',
       headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
