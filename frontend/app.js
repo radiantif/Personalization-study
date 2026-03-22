@@ -393,8 +393,12 @@ async function loadMaterials() {
       grid.innerHTML = `<div class="empty-state"><div class="es-icon">📁</div><div class="es-text">No materials yet. Add some notes or upload a file!</div></div>`;
       return;
     }
+    // Lưu materials vào cache để dùng khi click
+    window._materialsCache = {};
+    mats.forEach(m => { window._materialsCache[m.id] = m; });
+
     grid.innerHTML = mats.map(m => `
-      <div class="material-card" onclick="viewMaterial(${m.id}, '${escAttr(m.title)}', '${escAttr(m.file_type)}', '${escAttr(m.file_url || '')}', '${escAttr(m.content_html || m.content || '')}')">
+      <div class="material-card" data-mat-id="${m.id}" onclick="openMaterial(${m.id})">
         <div class="mat-type-icon">${matIcon(m.file_type)}</div>
         <div class="mat-title">${escHtml(m.title)}</div>
         ${m.subject_name ? `<span class="mat-subject-badge" style="background:${m.subject_color}22;color:${m.subject_color}">${escHtml(m.subject_name)}</span>` : ''}
@@ -413,13 +417,19 @@ function matIcon(type) {
 }
 
 function viewMaterial(id, title, type, fileUrl, content) {
-  if (fileUrl) {
-    // Cloudinary URL đã đầy đủ (https://...), không cần ghép thêm domain
+  // PDF hoặc ảnh có URL → mở thẳng tab mới
+  if (fileUrl && (type === 'pdf' || type === 'image')) {
     const url = fileUrl.startsWith('http') ? fileUrl : API.replace('/api','') + fileUrl;
     window.open(url, '_blank');
     return;
   }
-  // Hiện modal nội dung thay vì alert
+  // File có URL nhưng không phải pdf/image
+  if (fileUrl) {
+    const url = fileUrl.startsWith('http') ? fileUrl : API.replace('/api','') + fileUrl;
+    window.open(url, '_blank');
+    return;
+  }
+  // Ghi chú → hiện modal
   showMaterialModal(title, type, content);
 }
 
@@ -3956,4 +3966,31 @@ async function refreshRoom() {
     }).join('');
     if (wasAtBottom) chatEl.scrollTop = chatEl.scrollHeight;
   } catch {}
+}
+
+// ─── Open material từ cache (tránh lỗi encoding khi truyền qua onclick) ─────
+function openMaterial(id) {
+  const m = window._materialsCache?.[id];
+  if (!m) return;
+
+  const fileUrl = m.file_url || '';
+  const type = m.file_type || 'note';
+  const title = m.title || '';
+
+  // PDF hoặc ảnh có URL Cloudinary → mở tab mới
+  if (fileUrl && (type === 'pdf' || type === 'image')) {
+    const url = fileUrl.startsWith('http') ? fileUrl : API.replace('/api','') + fileUrl;
+    window.open(url, '_blank');
+    return;
+  }
+
+  // File khác có URL
+  if (fileUrl) {
+    const url = fileUrl.startsWith('http') ? fileUrl : API.replace('/api','') + fileUrl;
+    window.open(url, '_blank');
+    return;
+  }
+
+  // Ghi chú → hiện modal (dùng content_html nếu có)
+  showMaterialModal(title, type, m.content_html || m.content || '');
 }
